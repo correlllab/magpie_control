@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="magpie_control",  # Replace with your project name
+    name="magpie",  # Replace with your project name
     version="0.1.0",
     description="magpie control code for ur5, gripper, and camera",
     author="",
