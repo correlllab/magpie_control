@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "magpie"
+name = "magpie_control"
 version = "2024.9"
 authors = [
-  { name="James Watson", email="james.watson-2@colorado.edu" },
+  { name="Stefan Caldararu", email="stefan.caldararu@colorado.edu" },
 ]
-description = "magpie"
+description = "magpie_control"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -33,5 +33,5 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/correlllab/magpie"
-Issues = "https://github.com/correlllab/magpie/issues"
+Homepage = "https://github.com/correlllab/magpie_control"
+Issues = "https://github.com/correlllab/magpie_control/issues"
