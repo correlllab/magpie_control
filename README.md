@@ -7,14 +7,13 @@ To install `magpie_control` in a python environment, run the following commands 
 ```bash
 git clone https://github.com/correlllab/magpie_control.git #clone this repository
 cd magpie_control #enter the repo
-pip install -r requirements.txt
-pip install . #install magpie_control
+pip install . --user #install magpie_control
 ```
 
 Test out the functionality!
 
 ```bash
-python3
+python3.10
 import magpie_control
 
 ```
