@@ -1,2 +1,2 @@
-build/
-magpie.egg-info/
+build
+*.egg-info
