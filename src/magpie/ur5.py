@@ -210,6 +210,15 @@ class UR5_Interface:
         self.gripper.set_goal_aperture( width * 1000.0, finger = 'both', debug = False, record_load = False )
 
 
+    def set_grip_N( self, N ):
+        """ Set the gripper fingers to N [N] """
+        # self.set_gripper( self.gripClos_m )
+        if 0.0 < N < 16.0:
+            self.gripper.set_force( N, finger='both', debug=False)
+        else:
+            print( f"Force value {N} is out of range (0-16 N)" )
+
+
     def close_gripper( self ):
         """ Set the gripper fingers to near-zero gap """
         # self.set_gripper( self.gripClos_m )
