@@ -13,7 +13,7 @@ from py_trees.composites import Selector, Sequence
 from py_trees.decorators import FailureIsSuccess
 import py_trees.console as console
 
-from magpie.poses import pose_error, rotate_pose
+from magpie_control.poses import pose_error, rotate_pose
 
 _GRIP_WAIT_S = 1.5
 _DUMMYPOSE   = np.eye(4)

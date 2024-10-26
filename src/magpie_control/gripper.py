@@ -1,6 +1,6 @@
-import sys
-sys.path.append("../../")
-from magpie.ax12 import Ax12
+# import sys
+# sys.path.append("../../")
+from magpie_control.ax12 import Ax12
 import math
 import spatialmath as sm
 import copy

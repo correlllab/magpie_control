@@ -17,13 +17,13 @@ from rtde_receive import RTDEReceiveInterface as RTDEReceive
 # Gripper Interface
 import serial.tools.list_ports
 # from magpie.motor_code import Motors
-from magpie.gripper import Gripper
+from magpie_control.gripper import Gripper
 
 # Poses is from rmlib and used for converting between 4 x 4 homogenous pose and 6 element vector representation (x,y,z,rx,ry,rz)
-from magpie import poses
+from magpie_control import poses
 
 ##### Constants ##################################
-from magpie.homog_utils import homog_xform, R_krot
+from magpie_control.homog_utils import homog_xform, R_krot
 
 _CAMERA_XFORM = homog_xform( # TCP --to-> Camera
     rotnMatx = R_krot( [0.0, 0.0, 1.0], -np.pi/2.0 ),
