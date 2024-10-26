@@ -65,9 +65,10 @@ class Ax12:
     """
 
     PROTOCOL_VERSION = 1.0
-    BAUDRATE = 1_000_000  # Dynamixel default baudrate
-    DEVICENAME = '/dev/ttyUSB0'  # e.g 'COM3' windows or '/dev/ttyUSB0' for linux
-    DEBUG = True
+    BAUDRATE         = 1_000_000  # Dynamixel default baudrate
+    DEVICENAME       = '/dev/ttyUSB0'  # e.g 'COM3' windows or '/dev/ttyUSB0' for linux
+    DEBUG            = True
+    CONNECTED        = False
 
     def __init__(self, motor_id):
         """Initialize motor with id"""
@@ -317,6 +318,7 @@ class Ax12:
             print("Press any key to terminate...")
             quit()
 
+
     @classmethod
     def set_baudrate(cls):
         if cls.portHandler.setBaudRate(cls.BAUDRATE):
@@ -326,17 +328,22 @@ class Ax12:
             print("Press any key to terminate...")
             quit()
 
+
     @classmethod
     def connect(cls):
         cls.open_port()
         cls.set_baudrate()
         cls.packetHandler = PacketHandler(cls.PROTOCOL_VERSION)
+        cls.CONNECTED = True
+
 
     @classmethod
     def disconnect(cls):
         # Close port
         cls.portHandler.closePort()
         print('Successfully closed port')
+        cls.CONNECTED = False
+
 
     @staticmethod
     def check_error( comm_result, dxl_err ):

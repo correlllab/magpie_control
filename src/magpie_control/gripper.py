@@ -114,11 +114,13 @@ class Gripper:
         self.Finger2.set_goal_position(close2)
         time.sleep(0.1) # 100ms
 
-    def reset_packet_overload(self, finger='both'):
+
+    def reset_packet_overload( self ):
         self.Finger1.set_torque_enable(True)
         self.Finger2.set_torque_enable(True)
         self.Finger1.set_torque_limit(self.default_parameters['torque'])
         self.Finger2.set_torque_limit(self.default_parameters['torque'])
+
 
     def theta_limit(self, delta_theta):
         Motor1_theta = -delta_theta + self.Motor1theta_90
@@ -601,8 +603,9 @@ class Gripper:
             load = (-b + math.sqrt(discriminant)) / (2*a)
             return load
 
-    def disconnect(self):
-        Ax12.disconnect()
+    def disconnect( self ):
+        if Ax12.CONNECTED:
+            Ax12.disconnect()
 
 if __name__ =="__main__":
     Controller = Gripper()

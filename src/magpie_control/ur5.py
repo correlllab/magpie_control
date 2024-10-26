@@ -1,6 +1,9 @@
 ########## INIT ####################################################################################
 
 ##### Imports ####################################
+
+from time import sleep
+
 # Numpy
 import numpy as np
 from numpy import radians
@@ -90,10 +93,7 @@ class UR5_Interface:
             self.set_tcp_to_camera_xform( cameraXform )
 
 
-    def start( self ):
-        """ Connect to RTDE and the gripper """
-        self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
-        self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
+    def start_gripper( self ):
         servoPort = get_USB_port_with_desc( "OpenRB" )
         if servoPort is not None:
             print( f"Found Dynamixel Port:\n{servoPort}\n" )
@@ -103,6 +103,22 @@ class UR5_Interface:
             self.gripper.set_torque( self.torqLim, finger='both')
         else:
             raise RuntimeError( "Could NOT connect to gripper Dynamixel board!" )
+
+
+    def reset_gripper_overload( self, restart = True ):
+        """ Attempt to clear an overload error """
+        self.gripper.reset_packet_overload()
+        self.gripper.disconnect()
+        if restart:
+            sleep( 0.25 ) 
+            self.start_gripper()
+
+
+    def start( self ):
+        """ Connect to RTDE and the gripper """
+        self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
+        self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
+        self.start_gripper()
 
 
     def stop( self ):
