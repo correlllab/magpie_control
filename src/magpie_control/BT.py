@@ -161,7 +161,7 @@ class Move_Arm( BasicBehavior ):
 class Open_Gripper( BasicBehavior ):
     """ Open fingers to max extent """
     
-    def __init__( self, name = None, ctrl = None  ):
+    def __init__( self, name = None, ctrl = None ):
         """ Set the target """
         super().__init__( name, ctrl )
         self.wait_s = _GRIP_WAIT_S
@@ -186,7 +186,7 @@ class Open_Gripper( BasicBehavior ):
 class Set_Gripper( BasicBehavior ):
     """ Open fingers to max extent """
     
-    def __init__( self, width_m, name = None, ctrl = None  ):
+    def __init__( self, width_m, name = None, ctrl = None ):
         """ Set the target """
         super().__init__( name, ctrl )
         self.width_m = width_m
@@ -212,7 +212,7 @@ class Set_Gripper( BasicBehavior ):
 class Close_Gripper( BasicBehavior ):
     """ Close fingers completely """
     
-    def __init__( self, name = None, ctrl = None  ):
+    def __init__( self, name = None, ctrl = None ):
         """ Set the target """
         super().__init__( name, ctrl )
         self.wait_s = _GRIP_WAIT_S
@@ -236,7 +236,7 @@ class Close_Gripper( BasicBehavior ):
 class Gripper_Aperture_OK( BasicBehavior ):
     """ Return SUCCESS if gripper separation (both, [m]) is within margin of target """
     
-    def __init__( self, width_m, margin_m = None, name = None, ctrl = None  ):
+    def __init__( self, width_m, margin_m = None, name = None, ctrl = None ):
         """ Set the target """
         super().__init__( name, ctrl )
         self.width  = width_m
