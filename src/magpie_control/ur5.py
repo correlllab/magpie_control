@@ -138,7 +138,7 @@ class UR5_Interface:
         return np.array( self.recv.getActualQ() )
 
 
-    def get_tcp_pose( self ):
+    def get_tcp_pose( self ) -> np.ndarray:
         """ Returns the current pose of the gripper as a SE3 Object (4 x 4 Homegenous Transform) """
         # return sm.SE3( pose_vector_to_homog_coord( self.recv.getActualTCPPose() ) )
         return pose_vector_to_homog_coord( self.recv.getActualTCPPose() )
@@ -160,7 +160,7 @@ class UR5_Interface:
         return T_N
 
 
-    def get_cam_pose( self ):
+    def get_cam_pose( self ) -> np.ndarray:
         """ Returns the current pose of the gripper as a SE3 Object (4 x 4 Homegenous Transform) """
         # return sm.SE3( pose_vector_to_homog_coord( self.recv.getActualTCPPose() ) )
         return np.dot(
@@ -171,7 +171,7 @@ class UR5_Interface:
         )
 
 
-    def get_sensor_pose_in_robot_frame( self, sensorPose ):
+    def get_sensor_pose_in_robot_frame( self, sensorPose ) -> np.ndarray:
         """ Get a pose obtained from segmentation in the robot frame """
         return np.dot(
             self.get_cam_pose(),
