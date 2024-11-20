@@ -89,7 +89,7 @@ sock_r.connect(sensorAddr)
 sock_r.setblocking(0)
 send_datagram( sock_r, cmd.COMMANDS['set_speed_50']  )
 send_datagram( sock_r, cmd.COMMANDS['set_filter_0'] )
-send_datagram( sock_r, cmd.COMMANDS['set_bias_0']   )
+send_datagram( sock_r, cmd.COMMANDS['set_bias_1']   )
 send_datagram( sock_r, cmd.COMMANDS['send_01'], wait_s = 0.100 )
 
 rtnDat  = []
