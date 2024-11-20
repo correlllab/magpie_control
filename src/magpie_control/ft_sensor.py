@@ -50,6 +50,22 @@ class OptoForceCmd:
         """ Unpack the response into a python list """
         return list( OptoForceCmd.DG_res.unpack( res )[3:] ) # Trim off the header
 
+
+class OptoForce: 
+    def __init__(self, ip_address: str, port: int = 49152):
+        self.sensorAddr = (ip_address, port)
+        self.sock_r = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+    def connect(self):
+        """ Connect to the sensor """
+        self.sock_r.settimeout(5)
+        self.ttl_r = struct.pack('b', 1)
+        self.sock_r.connect(self.sensorAddr)
+        self.sock_r.setblocking(0)
+        send_datagram(self.sock_r, cmd.COMMANDS['set_speed_50'])
+        send_datagram(self.sock_r, cmd.COMMANDS['set_filter_0'])
+        send_datagram(self.sock_r, cmd.COMMANDS['set_bias_1'])
+        send_datagram(self.sock_r, cmd.COMMANDS['send_01'], wait_s = 0.100 )
 def send_datagram( sck, commandBytes, wait_s = 0.020 ):
     """ Send the command over the socket and wait a bit """
     sck.send( commandBytes )
