@@ -25,6 +25,9 @@ from magpie_control.gripper import Gripper
 # Poses is from rmlib and used for converting between 4 x 4 homogenous pose and 6 element vector representation (x,y,z,rx,ry,rz)
 from magpie_control import poses
 
+# FT Sensor
+from magpie_control.ft_sensor import OptoForceCmd, OptoForce
+
 ##### Constants ##################################
 from magpie_control.homog_utils import homog_xform, R_krot
 
@@ -78,6 +81,7 @@ class UR5_Interface:
         self.ctrl       = None # -- `RTDEControlInterface` object
         self.recv       = None # -- `RTDEReceiveInterface` object
         self.gripper    = None # -- Gripper Controller Interface
+        self.ft_sensor = None
         self.Q_safe     = [ radians( elem ) for elem in [ 12.30, -110.36, 95.90, -75.48, -89.59, 12.33 ] ]
         self.torqLim    = 600
         self.freq       = freq
@@ -102,6 +106,9 @@ class UR5_Interface:
         else:
             raise RuntimeError( "Could NOT connect to gripper Dynamixel board!" )
 
+    def start_ft_sensor( self, ip_address: str = "192.168.0.5", port: int = 49152):
+        self.ft_sensor = OptoForce(ip_address = ip_address, port = port)
+        self.ft_sensor.connect()
 
     def reset_gripper_overload( self, restart = True ):
         """ Attempt to clear an overload error """
@@ -111,6 +118,11 @@ class UR5_Interface:
             sleep( 0.25 ) 
             self.start_gripper()
 
+    def get_ft_data(self):
+        return self.ft_sensor.recv_datum()
+
+    def ft_control(self, force, speed = 0.1):
+        
 
     def start( self ):
         """ Connect to RTDE and the gripper """
@@ -129,6 +141,8 @@ class UR5_Interface:
         self.ctrl.servoStop()
         self.ctrl.stopScript()
         self.gripper.disconnect()
+        if ft_sensor is not None:
+            self.ft_sensor.close()
         
 
     def get_name( self ):
