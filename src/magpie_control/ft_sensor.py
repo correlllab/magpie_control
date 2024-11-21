@@ -52,83 +52,54 @@ class OptoForceCmd:
 
 
 class OptoForce: 
-    def __init__(self, ip_address: str, port: int = 49152):
+    def __init__(self, ip_address: str = "192.168.0.5", port: int = 49152):
         self.sensorAddr = (ip_address, port)
         self.sock_r = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.cmd = OptoForceCmd()
         
     def connect(self):
         """ Connect to the sensor """
         self.sock_r.settimeout(5)
-        self.ttl_r = struct.pack('b', 1)
         self.sock_r.connect(self.sensorAddr)
         self.sock_r.setblocking(0)
-        send_datagram(self.sock_r, cmd.COMMANDS['set_speed_50'])
-        send_datagram(self.sock_r, cmd.COMMANDS['set_filter_0'])
-        send_datagram(self.sock_r, cmd.COMMANDS['set_bias_1'])
-        send_datagram(self.sock_r, cmd.COMMANDS['send_01'], wait_s = 0.100 )
-def send_datagram( sck, commandBytes, wait_s = 0.020 ):
-    """ Send the command over the socket and wait a bit """
-    sck.send( commandBytes )
-    sleep( wait_s )
+        self.prime_sensor()
 
-def recv_datum(sock_r, cmd):
-    """ Attempt to recieve a datum from the socket """
-    rtnDat  = []
-    dataLen = 0
-    for i in range( 5):
-        if dataLen != RESPONS_SZ:
-            rtnDat  = []
-            dataLen = 0
-            try:
-                data, _ = sock_r.recvfrom( RESPONS_SZ ) # buffer size is 1024 bytes
-                print(data)
-                dataLen = len( data )
-                if dataLen == RESPONS_SZ:
-                    rtnDat = cmd.unpack_response( data )
-                    for i in range(3):
-                        rtnDat[i  ] /= FORCE_DIV
-                        rtnDat[i+3] /= TORQUE_DIV
-            except BlockingIOError as err:
-                print("ERROR!")
-                pass
-        else:
-            break
-        return rtnDat
+    def prime_sensor(self):
+        """ Prime the sensor for data collection """
+        self.send_datagram(self.cmd.COMMANDS['set_speed_50'])
+        self.send_datagram(self.cmd.COMMANDS['set_filter_0'])
+        self.send_datagram(self.cmd.COMMANDS['set_bias_1'])
+        self.send_datagram(self.cmd.COMMANDS['send_01'], wait_s = 0.100 )
 
-# shared_datum_base = multiprocessing.Array( ctypes.c_double, 6 )
-cmd = OptoForceCmd()
-sensorAddr = ("192.168.0.5", 49152)
-sock_r = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock_r.settimeout(5)
-ttl_r = struct.pack('b', 1)
-sock_r.connect(sensorAddr)
-sock_r.setblocking(0)
-send_datagram( sock_r, cmd.COMMANDS['set_speed_50']  )
-send_datagram( sock_r, cmd.COMMANDS['set_filter_0'] )
-send_datagram( sock_r, cmd.COMMANDS['set_bias_1']   )
-send_datagram( sock_r, cmd.COMMANDS['send_01'], wait_s = 0.100 )
+    def send_datagram(self, commandBytes, wait_s = 0.020):
+        """ Send the command over the socket and wait a bit """
+        self.sock_r.send(commandBytes)
+        sleep(wait_s)
 
-rtnDat  = []
-dataLen = 0
-for i in range(5):
-    if dataLen != RESPONS_SZ:
+    def recv_datum(self):
+        """ Attempt to recieve a datum from the socket """
         rtnDat  = []
         dataLen = 0
-        try:
-            data, _ = sock_r.recvfrom( RESPONS_SZ ) # buffer size is 1024 bytes
-            dataLen = len( data )
-            if dataLen == RESPONS_SZ:
-                rtnDat = cmd.unpack_response( data )
-                for i in range(3):
-                    rtnDat[i  ] /= FORCE_DIV
-                    rtnDat[i+3] /= TORQUE_DIV
-        except BlockingIOError as err:
-            print("ERROR!")
-            pass
-    else:
-        break
+        for i in range(5):
+            if dataLen != RESPONS_SZ:
+                rtnDat  = []
+                dataLen = 0
+                try:
+                    data, _ = self.sock_r.recvfrom(RESPONS_SZ) # buffer size is 1024 bytes
+                    dataLen = len(data)
+                    if dataLen == RESPONS_SZ:
+                        rtnDat = self.cmd.unpack_response(data)
+                        for i in range(3):
+                            rtnDat[i  ] /= FORCE_DIV
+                            rtnDat[i+3] /= TORQUE_DIV
+                except BlockingIOError as err:
+                    print("Error reading from OptoForce!")
+                    pass
+            else:
+                break
+            return rtnDat
 
-print(rtnDat)
+    def close(self):
+        """ Close the socket """
+        self.sock_r.close()
 
-#close the socket
-sock_r.close()
