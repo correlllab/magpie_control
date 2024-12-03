@@ -27,7 +27,7 @@ from magpie_control import poses
 
 # FT Sensor
 from magpie_control.ft_sensor import OptoForceCmd, OptoForce
-from arm_utils import RunUntilAnyT, FTCondition
+from magpie_control.arm_utils import RunUntilAnyT, FTCondition
 
 ##### Constants ##################################
 from magpie_control.homog_utils import homog_xform, R_krot
