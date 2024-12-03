@@ -27,6 +27,7 @@ from magpie_control import poses
 
 # FT Sensor
 from magpie_control.ft_sensor import OptoForceCmd, OptoForce
+from arm_utils import RunUntilAnyT, FTCondition
 
 ##### Constants ##################################
 from magpie_control.homog_utils import homog_xform, R_krot
@@ -121,8 +122,27 @@ class UR5_Interface:
     def get_ft_data(self):
         return self.ft_sensor.recv_datum()
 
-    def ft_control(self, force, speed = 0.1):
+    def ft_control(self, qGoal, force, speed = 0.1):
+        condition = FTCondition(self.ft_sensor, force)
+        # nonblocking move
+        self.moveJ(qGoal, rotSpeed = speed, asynch = True)
+        self.threaded_conditional_stop(condition.cond)
+        #TODO: development is here. Test if working?
+
+    def threaded_conditional_stop(self, condition = 'dummy'):
+        def end_cond():
+            nonlocal self
+            #check if the robot speed is less than 1e-3
+            return not self.p_moving()
         
+        def stop_cb():
+            nonlocal self
+            self.stop()
+        if condition == 'dummy':
+            condition = lambda: False
+        sched = RunUntilAnyT([condition, end_cond], stop_cb, 100)
+        time.sleep(0.1)
+        sched.run()
 
     def start( self ):
         """ Connect to RTDE and the gripper """
