@@ -3,6 +3,7 @@ import socket
 import numpy as np
 import multiprocessing, ctypes
 from time import sleep
+import random
 
 RESPONS_SZ = 36
 FORCE_DIV  =  10000.0 # -------------- Default Force  divide value
@@ -94,7 +95,8 @@ class OptoForce:
                             rtnDat[i+3] /= TORQUE_DIV
                 except BlockingIOError as err:
                     print("Error reading from OptoForce!")
-                    pass
+                    # if the read fails, clear the buffer and try again
+                    self.send_datagram(self.cmd.COMMANDS['stop_data'])
             else:
                 break
             return rtnDat

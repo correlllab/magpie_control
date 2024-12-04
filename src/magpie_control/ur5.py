@@ -139,7 +139,7 @@ class UR5_Interface:
         
         def stop_cb():
             nonlocal self
-            self.stop()
+            self.ctrl.stopL()
         if condition == 'dummy':
             condition = lambda: False
         sched = RunUntilAnyT([condition, end_cond], stop_cb, 100)
@@ -152,7 +152,14 @@ class UR5_Interface:
         self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
         self.start_gripper()
 
-
+    def revive(self):
+        if not self.ctrl.isConnected():
+            self.ctrl.reconnect()
+            sleep(0.5)
+        if not self.recv.isConnected():
+            self.recv.reconnect()
+            sleep(0.5)
+        
     def stop( self ):
         """ Shutdown robot and gripper connections """
         self.ctrl.servoStop()
