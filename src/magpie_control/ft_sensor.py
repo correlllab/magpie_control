@@ -69,7 +69,6 @@ class OptoForce:
         self.send_datagram(self.cmd.COMMANDS['set_speed_50'])
         self.send_datagram(self.cmd.COMMANDS['set_filter_0'])
         self.send_datagram(self.cmd.COMMANDS['set_bias_1'])
-        self.send_datagram(self.cmd.COMMANDS['send_01'], wait_s = 0.100 )
 
     def send_datagram(self, commandBytes, wait_s = 0.020):
         """ Send the command over the socket and wait a bit """
@@ -85,6 +84,7 @@ class OptoForce:
                 rtnDat  = []
                 dataLen = 0
                 try:
+                    self.send_datagram(self.cmd.COMMANDS['send_01'])
                     data, _ = self.sock_r.recvfrom(RESPONS_SZ) # buffer size is 1024 bytes
                     dataLen = len(data)
                     if dataLen == RESPONS_SZ:
