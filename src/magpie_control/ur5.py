@@ -143,7 +143,7 @@ class UR5_Interface:
         if condition == 'dummy':
             condition = lambda: False
         sched = RunUntilAnyT([condition, end_cond], stop_cb, 100)
-        time.sleep(0.1)
+        sleep(0.1)
         sched.run()
 
     def start( self ):
@@ -158,7 +158,7 @@ class UR5_Interface:
         self.ctrl.servoStop()
         self.ctrl.stopScript()
         self.gripper.disconnect()
-        if ft_sensor is not None:
+        if self.ft_sensor is not None:
             self.ft_sensor.close()
         
 

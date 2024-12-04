@@ -140,4 +140,8 @@ class FTCondition:
         self.threshold = threshold
     
     def cond(self):
-        return any(x < self.threshold for x in self.sensor.recv_datum())
+        data = self.sensor.recv_datum()
+        if any(x > self.threshold for x in data):
+            print("Force threshold met. Data: ", data)
+            return True
+        return False
