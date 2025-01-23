@@ -121,6 +121,11 @@ class UR5_Interface:
         self.start_gripper()
 
 
+    def halt( self ):
+        """ I don't actually know if this is safe to do! """
+        self.ctrl.servoStop()
+
+
     def stop( self ):
         """ Shutdown robot and gripper connections """
         self.ctrl.servoStop()

@@ -14,6 +14,7 @@ from py_trees.decorators import FailureIsSuccess
 import py_trees.console as console
 
 from magpie_control.poses import pose_error, rotate_pose
+from magpie_control.ur5 import UR5_Interface
 
 _GRIP_WAIT_S = 1.5
 _DUMMYPOSE   = np.eye(4)
@@ -32,7 +33,7 @@ class BasicBehavior( Behaviour ):
             super().__init__( name = str( self.__class__.__name__  ) )
         else:
             super().__init__( name = name )
-        self.ctrl = ctrl
+        self.ctrl : UR5_Interface = ctrl
         self.logger.debug( f"[{self.name}::__init__()]" )
         if self.ctrl is None:
             self.logger.warn( f"{self.name} is NOT conntected to a robot controller!" )
@@ -117,6 +118,8 @@ class Move_Q( BasicBehavior ):
                 self.status = Status.SUCCESS 
         return self.status
     
+
+
 ##### Move_Arm ###################################
     
     
@@ -153,6 +156,85 @@ class Move_Arm( BasicBehavior ):
                 print( self.name, ", POSE ERROR:", [errT, errO] )
                 self.status = Status.FAILURE
         return self.status
+    
+
+
+##### Move_Arm_w_Pause ###########################
+    
+    
+class Move_Arm_w_Pause( BasicBehavior ):
+    """ A version of `Move_Arm` that can be halted """
+    
+    def __init__( self, pose, name = None, ctrl = None, linSpeed = 0.25, linAccel = 0.5 ):
+        """ Set the target """
+        # NOTE: Asynchronous motion is REQUIRED by this Behavior!
+        super().__init__( name, ctrl )
+        self.pose     = pose
+        self.linSpeed = linSpeed
+        self.linAccel = linAccel
+        self.asynch   = True # This MUST be true
+        self.paused   = False # Is the motion paused?
+        self.nextMove = False # Will the motion be resumed?
+        self.mvPaus_s = 0.25
+
+
+    def pause( self ):
+        """ Arm will be paused next tick, Can only be done while RUNNING """
+        if self.status == Status.RUNNING:
+            self.paused = True
+
+        
+    def resume( self ):
+        """ Arm will resume motion next tick, Can only be done while RUNNING """
+        if self.status == Status.RUNNING:
+            self.paused = False
+
+        
+    def initialise( self ):
+        """ Actually Move """
+        super().initialise()
+        self.ctrl.moveL( self.pose, self.linSpeed, self.linAccel, self.asynch )
+        sleep( self.mvPaus_s )
+        
+        
+    def update( self ):
+        """ Return true if the target reached, Handle `pause()`/`resume()` in between ticks """
+        ## Running State ##
+        if not self.paused:
+            # Handle resume
+            if self.nextMove:
+                self.ctrl.moveL( self.pose, self.linSpeed, self.linAccel, self.asynch )
+                sleep( self.mvPaus_s )
+                self.status   = Status.RUNNING
+                self.nextMove = False
+            # Else motion is normal
+            else:
+                if self.ctrl.p_moving():
+                    self.status = Status.RUNNING
+                else:
+                    pM = self.ctrl.get_tcp_pose()
+                    pD = self.pose
+                    [errT, errO] = pose_error( pM, pD )
+                    if (errT <= DEFAULT_TRAN_ERR) and (errO <= DEFAULT_ORNT_ERR):
+                        self.status = Status.SUCCESS
+                    else:
+                        print( self.name, ", POSE ERROR:", [errT, errO] )
+                        self.status = Status.FAILURE
+        ## Paused State ##
+        elif self.paused:
+            # Handle robot moving at beginning of `pause()`
+            if self.status not in ( Status.SUCCESS, Status.FAILURE, ) and self.ctrl.p_moving():
+                self.nextMove = True
+                self.ctrl.halt()
+            # Else remain paused, do nothing
+            else:
+                pass
+
+
+        return self.status
+    
+
+
     
     
 ##### Open_Hand ##################################
