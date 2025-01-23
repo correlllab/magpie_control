@@ -165,7 +165,7 @@ class Move_Arm( BasicBehavior ):
 class Move_Arm_w_Pause( BasicBehavior ):
     """ A version of `Move_Arm` that can be halted """
     
-    def __init__( self, pose, name = None, ctrl = None, linSpeed = 0.25, linAccel = 0.5 ):
+    def __init__( self, pose, name = None, ctrl = None, linSpeed = 0.25, linAccel = 0.5, state = None ):
         """ Set the target """
         # NOTE: Asynchronous motion is REQUIRED by this Behavior!
         super().__init__( name, ctrl )
@@ -176,29 +176,47 @@ class Move_Arm_w_Pause( BasicBehavior ):
         self.paused   = False # Is the motion paused?
         self.nextMove = False # Will the motion be resumed?
         self.mvPaus_s = 0.25
+        self.state    = state
+        if isinstance( self.state, dict ):
+            self.useDct = True
+        else:
+            self.useDct = False
 
 
     def pause( self ):
         """ Arm will be paused next tick, Can only be done while RUNNING """
-        if self.status == Status.RUNNING:
-            self.paused = True
+        self.paused = True
 
         
     def resume( self ):
         """ Arm will resume motion next tick, Can only be done while RUNNING """
-        if self.status == Status.RUNNING:
-            self.paused = False
+        self.paused = False
+
+
+    def check_pause_bb( self ):
+        """ Use a blackboard (dict) to `pause()`/`resume()` """
+        if self.useDct:
+            if self.state['dctRef'][ self.state['dctKey'] ]:
+                self.pause()
+            else:
+                self.resume()
 
         
     def initialise( self ):
         """ Actually Move """
         super().initialise()
-        self.ctrl.moveL( self.pose, self.linSpeed, self.linAccel, self.asynch )
-        sleep( self.mvPaus_s )
+        self.check_pause_bb()
+        if self.paused:
+            self.nextMove = True
+        else:
+            self.ctrl.moveL( self.pose, self.linSpeed, self.linAccel, self.asynch )
+            sleep( self.mvPaus_s )
         
         
     def update( self ):
         """ Return true if the target reached, Handle `pause()`/`resume()` in between ticks """
+        # Fetch command, if applicable
+        self.check_pause_bb()
         ## Running State ##
         if not self.paused:
             # Handle resume
@@ -223,17 +241,14 @@ class Move_Arm_w_Pause( BasicBehavior ):
         ## Paused State ##
         elif self.paused:
             # Handle robot moving at beginning of `pause()`
-            if self.status not in ( Status.SUCCESS, Status.FAILURE, ) and self.ctrl.p_moving():
-                self.nextMove = True
+            if self.ctrl.p_moving():
                 self.ctrl.halt()
-            # Else remain paused, do nothing
-            else:
-                pass
-
+            # Handle state
+            if self.status not in ( Status.SUCCESS, Status.FAILURE, ):
+                self.status   = Status.RUNNING
+                self.nextMove = True
 
         return self.status
-    
-
 
     
     
