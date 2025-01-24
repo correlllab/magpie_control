@@ -27,27 +27,30 @@ _DUMMYPOSE   = np.eye(4)
 class BasicBehavior( Behaviour ):
     """ Abstract class for repetitive housekeeping """
     
-    
     def __init__( self, name = None, ctrl = None ):
         """ Set name to the child class name unless otherwise specified """
         if name is None:
             super().__init__( name = str( self.__class__.__name__  ) )
         else:
             super().__init__( name = name )
-        self.ctrl : UR5_Interface = ctrl
+        self.ctrl  = ctrl
+        self.msg   = ""
         self.logger.debug( f"[{self.name}::__init__()]" )
         if self.ctrl is None:
-            self.logger.warn( f"{self.name} is NOT conntected to a robot controller!" )
-
+            self.logger.warning( f"{self.name} is NOT conntected to a robot controller!" )
+        self.count = 0
         
+
     def setup(self):
+        """ Virtual setup for base class """
         self.logger.debug( f"[{self.name}::setup()]" )          
         
         
     def initialise( self ):
         """ Run first time behaviour is ticked or not RUNNING.  Will be run again after SUCCESS/FAILURE. """
         self.status = Status.RUNNING # Do not let the behavior idle in INVALID
-        self.logger.debug( f"[{self.name}::initialise()]" )          
+        self.logger.debug( f"[{self.name}::initialise()]" ) 
+        self.count = 0         
 
         
     def terminate( self, new_status ):
@@ -58,8 +61,19 @@ class BasicBehavior( Behaviour ):
         
     def update( self ):
         """ Return true in all cases """
-        self.status = py_trees.common.Status.SUCCESS
+        self.status = Status.SUCCESS
         return self.status
+    
+
+    def stall( self, Nwait ):
+        """ Run at least `Nwait` ticks """
+        rtnStat = Status.INVALID
+        if self.count < Nwait:
+            rtnStat = Status.RUNNING
+        else:
+            rtnStat = Status.SUCCESS
+        self.count += 1
+        return rtnStat
     
     
     
