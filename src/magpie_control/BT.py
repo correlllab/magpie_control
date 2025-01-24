@@ -3,6 +3,7 @@
 ### Basic Imports ###
 import builtins, csv, datetime, os, subprocess, time, types, pprint
 from time import sleep
+now = time.time
 
 import numpy as np
 
@@ -75,6 +76,32 @@ PROTO_PICK_ROT = np.array( [[ 0.0,  1.0,  0.0, ],
 
 ### Set important BB items ###
 # MP2BB[ SCAN_POSE_KEY ] = dict()
+
+
+
+########## CONTROL FLOW BEHAVIORS ##################################################################
+
+
+class CycleTimer( BasicBehavior ):
+    """ Return `SUCCESS` on a periodic basis """
+
+    def __init__( self, period_s, name = None, ctrl = None ):
+        """ Set the period """
+        super().__init__( name, ctrl )
+        self.period = period_s
+        self.tLast  = now()
+
+
+    def update( self ):
+        """ Return SUCCESS if the period expired """
+        if (now() - self.tLast) >= self.period:
+            self.tLast  = now()
+            self.status = Status.SUCCESS 
+        else:
+            self.status = Status.RUNNING
+        return self.status
+
+
 
 ########## MOVEMENT BEHAVIORS ######################################################################
 
