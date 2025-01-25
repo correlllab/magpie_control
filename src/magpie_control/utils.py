@@ -164,6 +164,7 @@ def closest_pair(ptsList):
                 leastPair = (i, j)
     return leastPair, leastDist
 
+
 def position_from_pose( pose ):
     """ Return the displacement part of a homogeneous pose matrix """
     return [ pose[i][3] for i in range(3) ]

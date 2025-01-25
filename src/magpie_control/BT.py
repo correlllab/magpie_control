@@ -1,7 +1,7 @@
 ########## INIT ####################################################################################
 
 ### Basic Imports ###
-import builtins, csv, datetime, os, subprocess, time, types, pprint
+import builtins, datetime, time
 from time import sleep
 now = time.time
 
@@ -10,12 +10,10 @@ import numpy as np
 import py_trees
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
-from py_trees.composites import Selector, Sequence
-from py_trees.decorators import FailureIsSuccess
-import py_trees.console as console
+from py_trees.composites import Sequence
 
-from magpie_control.poses import pose_error, rotate_pose
-from magpie_control.ur5 import UR5_Interface
+from magpie_control.poses import pose_error
+# from magpie_control.ur5 import UR5_Interface
 
 _GRIP_WAIT_S = 1.5
 _DUMMYPOSE   = np.eye(4)
@@ -60,8 +58,7 @@ class BasicBehavior( Behaviour ):
         
         
     def update( self ):
-        """ Return true in all cases """
-        self.status = Status.SUCCESS
+        """ Return status """
         return self.status
     
 
@@ -80,20 +77,33 @@ class BasicBehavior( Behaviour ):
 ########## CONSTANTS & COMPONENTS ##################################################################
 
 ### Init data structs & Keys ###
-# builtins._DUMMYPOSE     = np.eye(4)
-# builtins.MP2BB = dict()  # Hack the BB object into the built-in namespace
-# builtins.SCAN_POSE_KEY  = "scanPoses"
-# builtins.HAND_OBJ_KEY   = "handHas"
+MP2BB          = dict()  # Hack the BB object into the built-in namespace  # Hack the BB object into the built-in namespace
+_PAUSE_KEY     = "robotPaused"
 PROTO_PICK_ROT = np.array( [[ 0.0,  1.0,  0.0, ],
                             [ 1.0,  0.0,  0.0, ],
                             [ 0.0,  0.0, -1.0, ]] )
 
 ### Set important BB items ###
-# MP2BB[ SCAN_POSE_KEY ] = dict()
+MP2BB[ _PAUSE_KEY ] = False
 
 
 
 ########## CONTROL FLOW BEHAVIORS ##################################################################
+
+class SetBBVar( BasicBehavior ):
+    """ Return `SUCCESS` on a periodic basis """
+
+    def __init__( self, k, v, name = None, ctrl = None ):
+        """ Set the blackboad value """
+        super().__init__( name, ctrl )
+        self.key = k
+        self.val = v
+
+    def initialise( self ):
+        """ Actually Move """
+        super().initialise()
+        MP2BB[ self.key ] = self.val
+
 
 
 class CycleTimer( BasicBehavior ):
@@ -201,12 +211,24 @@ class Move_Arm( BasicBehavior ):
 
 
 ##### Move_Arm_w_Pause ###########################
+
+
+class Pause_Robot( SetBBVar ):
+    """ Halt robot motion """
+    # FIXME, START HERE: USE PARENT CLASS TO SET PAUSE STATE
+    pass
+
+
+class Resume_Robot( SetBBVar ):
+    """ Resume robot motion """
+    # FIXME, START HERE: USE PARENT CLASS TO SET RESUME STATE
+    pass
     
     
 class Move_Arm_w_Pause( BasicBehavior ):
     """ A version of `Move_Arm` that can be halted """
     
-    def __init__( self, pose, name = None, ctrl = None, linSpeed = 0.25, linAccel = 0.5, state = None ):
+    def __init__( self, pose, name = None, ctrl = None, linSpeed = 0.25, linAccel = 0.5, useBB = False ):
         """ Set the target """
         # NOTE: Asynchronous motion is REQUIRED by this Behavior!
         super().__init__( name, ctrl )
@@ -217,11 +239,7 @@ class Move_Arm_w_Pause( BasicBehavior ):
         self.paused   = False # Is the motion paused?
         self.nextMove = False # Will the motion be resumed?
         self.mvPaus_s = 0.25
-        self.state    = state
-        if isinstance( self.state, dict ):
-            self.useDct = True
-        else:
-            self.useDct = False
+        self.useBB    = useBB
 
 
     def pause( self ):
@@ -236,8 +254,8 @@ class Move_Arm_w_Pause( BasicBehavior ):
 
     def check_pause_bb( self ):
         """ Use a blackboard (dict) to `pause()`/`resume()` """
-        if self.useDct:
-            if self.state['dctRef'][ self.state['dctKey'] ]:
+        if self.useBB:
+            if MP2BB[ _PAUSE_KEY ]:
                 self.pause()
             else:
                 self.resume()
