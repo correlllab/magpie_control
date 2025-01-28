@@ -99,10 +99,20 @@ class SetBBVar( BasicBehavior ):
         self.key = k
         self.val = v
 
+
     def initialise( self ):
         """ Actually Move """
         super().initialise()
         MP2BB[ self.key ] = self.val
+
+
+    def update( self ):
+        """ Return SUCCESS if the value was correctly set """
+        if MP2BB[ self.key ] == self.val:
+            self.status = Status.SUCCESS 
+        else:
+            self.status = Status.RUNNING
+        return self.status
 
 
 
@@ -215,14 +225,18 @@ class Move_Arm( BasicBehavior ):
 
 class Pause_Robot( SetBBVar ):
     """ Halt robot motion """
-    # FIXME, START HERE: USE PARENT CLASS TO SET PAUSE STATE
-    pass
+    
+    def __init__( name = None, ctrl = None ):
+        """ Set up """
+        super().__init__( _PAUSE_KEY, True, name, ctrl )
 
 
 class Resume_Robot( SetBBVar ):
     """ Resume robot motion """
-    # FIXME, START HERE: USE PARENT CLASS TO SET RESUME STATE
-    pass
+        
+    def __init__( name = None, ctrl = None ):
+        """ Set up """
+        super().__init__( _PAUSE_KEY, False, name, ctrl )
     
     
 class Move_Arm_w_Pause( BasicBehavior ):
