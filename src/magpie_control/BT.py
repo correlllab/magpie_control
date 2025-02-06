@@ -30,7 +30,7 @@ class BasicBehavior( Behaviour ):
         if name is None:
             super().__init__( name = str( self.__class__.__name__  ) )
         else:
-            super().__init__( name = name )
+            super().__init__( name = str( name ) )
         self.ctrl  = ctrl
         self.msg   = ""
         self.logger.debug( f"[{self.name}::__init__()]" )
@@ -39,7 +39,7 @@ class BasicBehavior( Behaviour ):
         self.count = 0
         
 
-    def setup(self):
+    def setup( self ):
         """ Virtual setup for base class """
         self.logger.debug( f"[{self.name}::setup()]" )          
         
@@ -95,7 +95,7 @@ class SetBBVar( BasicBehavior ):
 
     def __init__( self, k, v, name = None, ctrl = None ):
         """ Set the blackboad value """
-        super().__init__( name, ctrl )
+        super().__init__( name = name, ctrl = ctrl )
         self.key = k
         self.val = v
 
@@ -132,7 +132,7 @@ class CycleTimer( BasicBehavior ):
             self.tLast  = now()
             self.status = Status.SUCCESS 
         else:
-            self.status = Status.RUNNING
+            self.status = Status.FAILURE
         return self.status
 
 
