@@ -30,10 +30,8 @@ from magpie_control.homog_utils import homog_xform, R_krot
 
 _CAMERA_XFORM = homog_xform( # TCP --to-> Camera
     rotnMatx = R_krot( [0.0, 0.0, 1.0], -np.pi/2.0 ),
-    # posnVctr = [0.0, 0.0, 0.084-0.2818]
-    # posnVctr = [0.0, 0.0, -0.084]
-    # posnVctr = [0.0, 0.0,  0.084]
     posnVctr = [0.0, 0.0,  0.120]
+    # posnVctr = [-0.0173, -0.0018,  0.0183] # 2025-02-06: This was a terrible idea
 )
 
 ########## HELPER FUNCTIONS ########################################################################
