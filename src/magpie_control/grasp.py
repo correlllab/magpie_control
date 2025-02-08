@@ -1,16 +1,17 @@
 import sys
 sys.path.append("../../")
-from magpie.motor_code import Motors
-import magpie.ur5 as ur5
+from magpie_control.motor_code import Motors
+import magpie_control.ur5 as ur5
 import numpy as np
 import spatialmath as sm
 import copy
 import time
-import math
+import rtde_control, rtde_receive
+from magpie_control.gripper import gr
 
 sleepRate = 0.75
 
-def get_world_frame(gripperFrameCoords, ur, z_offset=0.08):
+def get_world_frame(gripperFrameCoords, ur : ur5.UR5_Interface, z_offset=0.08):
     # given a goal position in gripper coords returns the displacements from the current pose in world coords
     xB,yB,zB = gripperFrameCoords
     # TODO: stop hardcoding a Z-stop position
@@ -284,6 +285,10 @@ def grabStrat2(pos):
 
 def grabStrat1(pos):
     # strategy 1: close 1 finger until contact, then make rigid and close 2nd finger
+
+    servoPort = "/dev/ttyACM0"
+    gripperController = Motors(servoPort)
+
     m1 = gripperController.Motor1
     m2 = gripperController.Motor2
     # error margin of 10 pos units allowed

@@ -15,7 +15,7 @@ from spatialmath import SE3
 # UR Interface
 import rtde_control
 import rtde_receive
-from rtde_receive import RTDEReceiveInterface as RTDEReceive
+# from rtde_receive import RTDEReceiveInterface as RTDEReceive
 
 # Gripper Interface
 import serial.tools.list_ports
