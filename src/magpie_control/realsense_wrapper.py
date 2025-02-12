@@ -277,7 +277,7 @@ class RealSense():
             subFix = time.time()
             np.save(f"colorImage{subFix}", np.array(rawRGBDImage.color))
             np.save(f"depthImage{subFix}", np.array(rawRGBDImage.depth))
-            o3d.io.write_point_cloud(f"pcd{subFix}.pcd", downsampledPCD)
+            # o3d.io.write_point_cloud(f"pcd{subFix}.pcd", downsampledPCD)
 
         if adjust_extrinsics:
             # create rotation matrix of -pi/2 about z-axis
