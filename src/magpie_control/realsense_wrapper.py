@@ -4,10 +4,11 @@ import pyrealsense2 as rs
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
-import subprocess
 import os
 import asyncio
 import threading
+
+from magpie_control.realsense_device_manager import DeviceManager
 
 def poll_devices():
     ctx = rs.context()
@@ -16,6 +17,7 @@ def poll_devices():
     serial = [d.get_info(rs.camera_info.serial_number) for d in devices]
     info = {i:j for i,j in zip(models, serial)}
     return info
+
 
 class RealSense():
     def __init__(self, w=1280, h=720, zMax=0.5, voxelSize=0.001, fps=5, device_serial=None, device_name='D405'):
@@ -27,10 +29,11 @@ class RealSense():
         self.extrinsics = np.eye(4)  # extrinsic parameters of the camera frame 4 x 4 numpy array
         self.cameraFrameTransform = np.eye(4)
         self.pipe, self.config, self.device = None, None, None
-        self.recording = False
+        self.recording      = False
         self.recording_task = None
-        self.fps = fps # fps can only be: 5, 15, 30, 60, 90
-        self.device_name = device_name
+        self.fps            = fps # fps can only be: 5, 15, 30, 60, 90
+        self.device_name    = device_name
+        self.deviceManager  = DeviceManager()
         if self.device_name is not None:
             try:
                 self.device_serial = poll_devices()[self.device_name]
@@ -90,10 +93,20 @@ class RealSense():
 
     def getPinholeInstrinsics(self, frame):
         # frame is a subclass of pyrealsense2.video_frame (depth_frame,etc)
-        intrinsics = frame.profile.as_video_stream_profile().intrinsics
-        return o3d.camera.PinholeCameraIntrinsic(intrinsics.width, intrinsics.height, intrinsics.fx,
-                                                 intrinsics.fy, intrinsics.ppx,
-                                                 intrinsics.ppy)
+
+        if 0:
+            intrinsics = frame.profile.as_video_stream_profile().intrinsics
+        else:
+            # Get the intrinsics of the realsense device
+            # Source: https://github.com/isl-org/Open3D/issues/473#issuecomment-408017937
+            frames_devices     = self.deviceManager.poll_frames()
+            intrinsics_devices = self.deviceManager.get_device_intrinsics(frames_devices)
+            intrinsics         = intrinsics_devices[self.device_serial][rs.stream.depth]
+
+
+        return o3d.camera.PinholeCameraIntrinsic( intrinsics.width, intrinsics.height, intrinsics.fx,
+                                                  intrinsics.fy, intrinsics.ppx,
+                                                  intrinsics.ppy )
 
     def write_buffer(self):
         for path, im in self.buffer_dict.items():
