@@ -33,7 +33,7 @@ class BasicBehavior( Behaviour ):
             super().__init__( name = str( name ) )
         self.ctrl : UR5_Interface = ctrl
         self.msg    = ""
-        self.paused = False
+        self.paused  = False
         if self.ctrl is None:
             self.logger.warning( f"{self.name} is NOT conntected to a robot controller!" )
         
@@ -416,6 +416,7 @@ class BT_Runner:
         self.Nlim   = int( limit_s * tickHz )
         self.i      = 0
         self.tLast  = now()
+        self.paused = False
 
 
     def setup_BT_for_running( self ):
@@ -458,6 +459,7 @@ class BT_Runner:
                 set_pause( chld )
             behav.pause()
 
+        self.paused = True
         set_pause( self.root )
 
 
@@ -469,6 +471,7 @@ class BT_Runner:
                 set_resume( chld )
             behav.resume()
 
+        self.paused = False
         set_resume( self.root )
 
 
