@@ -138,6 +138,7 @@ class DeviceManager:
         assert isinstance(D400_pipeline_configuration, type(rs.config()))
         self._context = context
         self._available_devices = enumerate_connected_devices(context)
+        print( f"There are {len(self._available_devices)} available devices!" )
         self._enabled_devices = {} #serial numbers of te enabled devices
         self.D400_config = D400_pipeline_configuration
         self._frame_counter = 0
@@ -158,7 +159,7 @@ class DeviceManager:
         pipeline = rs.pipeline()
 
         device_serial = device_info[0]
-        product_line = device_info[1]
+        product_line  = device_info[1]
 
         if product_line == "D400":
             # Enable D400 device
@@ -179,7 +180,7 @@ class DeviceManager:
         Enable all the Intel RealSense Devices which are connected to the PC
 
         """
-        print(str(len(self._available_devices)) + " devices have been found")
+        # print(str(len(self._available_devices)) + " devices have been found")
 
         for device_info in self._available_devices:
             self.enable_device(device_info, enable_ir_emitter)
@@ -280,6 +281,7 @@ class DeviceManager:
         """
         device_intrinsics = {}
         for (dev_info, frameset) in frames.items():
+            # print( dev_info, frameset )
             serial = dev_info[0]
             device_intrinsics[serial] = {}
             for key, value in frameset.items():

@@ -8,7 +8,7 @@ import os
 import asyncio
 import threading
 
-from magpie_control.realsense_device_manager import DeviceManager
+from magpie_control.realsense_device_manager import DeviceManager, Device
 
 def poll_devices():
     ctx = rs.context()
@@ -32,8 +32,7 @@ class RealSense():
         self.recording      = False
         self.recording_task = None
         self.fps            = fps # fps can only be: 5, 15, 30, 60, 90
-        self.device_name    = device_name
-        self.deviceManager  = DeviceManager()
+        self.device_name    = device_name        
         if self.device_name is not None:
             try:
                 self.device_serial = poll_devices()[self.device_name]
@@ -45,6 +44,8 @@ class RealSense():
         self.w = w
         self.h = h
         self.buffer_dict = {}
+        self.deviceManager  = DeviceManager()
+
 
     def initConnection(self, device_serial=None, enable_depth=True, enable_color=True):
         # Initializes connection to realsense, sets pipe,config values
@@ -89,7 +90,16 @@ class RealSense():
             self.config.enable_stream(rs.stream.color, self.w, self.h, rs.format.rgb8, self.fps)
 
         # Starting the pipeline based on the specified configuration
-        p = self.pipe.start(self.config)
+        profile = self.pipe.start(self.config)
+
+        product_line = None
+        for device_info in self.deviceManager._available_devices:
+            device_serial_i = device_info[0]
+            if device_serial_i == device_serial:
+                product_line = device_info[1]
+
+        self.deviceManager._enabled_devices[ self.device_serial ] = Device( self.pipe, profile, product_line)
+
 
     def getPinholeInstrinsics(self, frame):
         # frame is a subclass of pyrealsense2.video_frame (depth_frame,etc)
@@ -100,7 +110,9 @@ class RealSense():
             # Get the intrinsics of the realsense device
             # Source: https://github.com/isl-org/Open3D/issues/473#issuecomment-408017937
             frames_devices     = self.deviceManager.poll_frames()
+            # print( f"There were {len(frames_devices)} frames!" )
             intrinsics_devices = self.deviceManager.get_device_intrinsics(frames_devices)
+            # print( f"{intrinsics_devices.keys()}" )
             intrinsics         = intrinsics_devices[self.device_serial][rs.stream.depth]
 
 
