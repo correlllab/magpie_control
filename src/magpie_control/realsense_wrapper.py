@@ -1,14 +1,20 @@
+########## INIT ####################################################################################
+
 import open3d as o3d
 import numpy as np
 import pyrealsense2 as rs
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
-import os
+from collections import deque
 import asyncio
-import threading
+
 
 from magpie_control.realsense_device_manager import DeviceManager, Device
+
+
+
+########## HELPER FUNCTIONS ########################################################################
 
 def poll_devices():
     ctx = rs.context()
@@ -18,6 +24,54 @@ def poll_devices():
     info = {i:j for i,j in zip(models, serial)}
     return info
 
+
+def make_o3d_cpcd( points : list, colors : list ):
+    cpcd = o3d.geometry.PointCloud()
+    if len( points ):
+        cpcd.points = o3d.utility.Vector3dVector( np.array( points ) )
+        cpcd.colors = o3d.utility.Vector3dVector( np.array( colors ) )
+    return cpcd
+
+
+
+########## HELPER CLASSES ##########################################################################
+
+class MPCD:
+    """ Container class for 3D data """
+
+    def __init__( self, pcd, rgbd, xyzArr : np.ndarray, rgbArr : np.ndarray ):
+        self.pcd    = pcd
+        self.rgbd   = rgbd
+        self.xyzArr = xyzArr
+        self.rgbArr = rgbArr
+
+
+    def get_masked_cpcd( self, mask : np.ndarray, NB = 50, zClip = 0.500 ):
+        """ Mask only desired points """
+        epsilon = 0.0005
+        M, N    = self.xyzArr.shape[:2]
+        xyz     = deque()
+        rgb     = deque()
+        for i in range(M):
+            for j in range(N):
+                if (mask[i,j] > epsilon) and (self.xyzArr[i,j,2] <= zClip):
+                    xyz.append( self.xyzArr[i,j,:] )
+                    rgb.append( self.rgbArr[i,j,:] )
+        cpcd = make_o3d_cpcd( list( xyz ), list( rgb ) )
+
+        # denoise pcd
+        _, ind = cpcd.remove_statistical_outlier( nb_neighbors = NB, std_ratio = 0.01 )
+        return cpcd.select_by_index( ind )
+
+
+
+
+
+
+
+
+
+########## REALSENSE WRAPPER #######################################################################
 
 class RealSense():
     def __init__(self, w=1280, h=720, zMax=0.5, voxelSize=0.001, fps=5, device_serial=None, device_name='D405'):
@@ -111,14 +165,21 @@ class RealSense():
             # Source: https://github.com/isl-org/Open3D/issues/473#issuecomment-408017937
             frames_devices     = self.deviceManager.poll_frames()
             # print( f"There were {len(frames_devices)} frames!" )
-            intrinsics_devices = self.deviceManager.get_device_intrinsics(frames_devices)
+            intrinsics_devices = self.deviceManager.get_device_intrinsics( frames_devices )
             # print( f"{intrinsics_devices.keys()}" )
             intrinsics         = intrinsics_devices[self.device_serial][rs.stream.depth]
 
 
-        return o3d.camera.PinholeCameraIntrinsic( intrinsics.width, intrinsics.height, intrinsics.fx,
-                                                  intrinsics.fy, intrinsics.ppx,
-                                                  intrinsics.ppy )
+        return o3d.camera.PinholeCameraIntrinsic( intrinsics.width, intrinsics.height, 
+                                                  intrinsics.fx, intrinsics.fy, 
+                                                  intrinsics.ppx, intrinsics.ppy )
+    
+    # def get_custom_D405_intrinsics( self ):
+    #     """ People on the internet say that the correct intrinsics don't come from the API? """
+    #     return o3d.camera.PinholeCameraIntrinsic( 1288, 808, 
+    #                                               641.341675, 640.458862, 
+    #                                               intrinsics.ppx, intrinsics.ppy )
+
 
     def write_buffer(self):
         for path, im in self.buffer_dict.items():
@@ -268,6 +329,72 @@ class RealSense():
             colorIM = Image.fromarray(rawColorImage)
             colorIM.save(f"{filepath}colorImage{subFix}.jpeg")
         return rawRGBDImage
+    
+
+    def getPCD_alt( self, minVal = 0.070, maxVal = 18.00 ):
+        """ What if Open3D were not my friend? """
+        # Source: https://github.com/dorodnic/binder_test/blob/master/pointcloud.ipynb
+        
+        frameset    = self.pipe.wait_for_frames()
+        color_frame = frameset.get_color_frame()
+        depth_frame = frameset.get_depth_frame()
+
+        alignOperator = rs.align(rs.stream.color)
+        alignOperator.process(frameset)
+        alignedDepthFrame, alignedColorFrame = frameset.get_depth_frame(), frameset.get_color_frame()
+
+        # unmodified rgb and z images as numpy arrays of 3 and 1 channels
+        rawColorImage = np.array(alignedColorFrame.get_data()).copy()
+        rawDepthImage = np.asarray(alignedDepthFrame.get_data())
+
+        rawRGBDImage = rawRGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(
+            o3d.geometry.Image( rawColorImage ),
+            o3d.geometry.Image( rawDepthImage.astype('uint16') ),
+            depth_scale = 1.0 / self.depthScale,
+            depth_trunc = self.zMax,
+            convert_rgb_to_intensity = False
+        )
+
+        # rawColorImage = np.asanyarray( frameset.get_color_frame().get_data() )
+        # rawDepthImage = np.asanyarray( frameset.get_depth_frame().get_data() )
+        # rawColorImage = rawColorImage
+        # rawDepthImage = rawDepthImage
+
+        # print( rawColorImage.shape )
+        M, N = rawDepthImage.shape 
+
+        pc = rs.pointcloud()
+        pc.map_to( color_frame )
+        pointcloud = pc.calculate( depth_frame )
+        vtx = np.asanyarray( pointcloud.get_vertices() )
+
+        # WARNING: WAS THERE NOT A SANE WAY TO RESHAPE THIS?
+        xyzArr = np.zeros( rawColorImage.shape )
+        rgbArr = np.zeros( rawColorImage.shape )
+        xyz    = deque()
+        rgb    = deque()
+        k      = 0
+
+        for i in range(M):
+            for j in range(N):
+                vRow = vtx[k]
+                pnt  = [vRow[0], vRow[1], vRow[2]]
+                clr  = rawColorImage[i,j,:]
+                tot  = abs( sum( pnt ) )
+                xyzArr[i,j,:] = pnt
+                rgbArr[i,j,:] = clr
+                if minVal < tot < maxVal:
+                    xyz.append( pnt )
+                    rgb.append( clr )
+                k += 1
+
+        # setattr( rawRGBDImage, "xyzArr", xyzArr.copy() )
+        # rawRGBDImage.xyzArr = xyzArr.copy()
+
+        pcd = make_o3d_cpcd( list( xyz ), list( rgb ) )
+
+        return MPCD( pcd, rawRGBDImage, xyzArr, rgbArr )
+        
 
     def getPCD(self, save=False, adjust_extrinsics=False):
         # Takes images and returns a PCD and RGBD Image
