@@ -39,11 +39,23 @@ def make_o3d_cpcd( points : list, colors : list ):
 class MPCD:
     """ Container class for 3D data """
 
-    def __init__( self, pcd, rgbd, xyzArr : np.ndarray, rgbArr : np.ndarray ):
-        self.pcd    = pcd
+    def __init__( self, rgbd, xyzArr : np.ndarray, rgbArr : np.ndarray ):
         self.rgbd   = rgbd
         self.xyzArr = xyzArr
         self.rgbArr = rgbArr
+
+
+    def get_full_cpcd( self, minVal = 0.070, maxVal = 18.00 ):
+        """ Mask only desired points """
+        M, N    = self.xyzArr.shape[:2]
+        xyz     = deque()
+        rgb     = deque()
+        for i in range(M):
+            for j in range(N):
+                if minVal <= sum( self.xyzArr[i,j,:] ) <= minVal:
+                    xyz.append( self.xyzArr[i,j,:] )
+                    rgb.append( self.rgbArr[i,j,:] )
+        return make_o3d_cpcd( list( xyz ), list( rgb ) )
 
 
     def get_masked_cpcd( self, mask : np.ndarray, NB = 50, zClip = 0.500 ):
@@ -331,7 +343,7 @@ class RealSense():
         return rawRGBDImage
     
 
-    def getPCD_alt( self, minVal = 0.070, maxVal = 18.00 ):
+    def getPCD_alt( self ):
         """ What if Open3D were not my friend? """
         # Source: https://github.com/dorodnic/binder_test/blob/master/pointcloud.ipynb
         
@@ -355,45 +367,27 @@ class RealSense():
             convert_rgb_to_intensity = False
         )
 
-        # rawColorImage = np.asanyarray( frameset.get_color_frame().get_data() )
-        # rawDepthImage = np.asanyarray( frameset.get_depth_frame().get_data() )
-        # rawColorImage = rawColorImage
-        # rawDepthImage = rawDepthImage
-
-        # print( rawColorImage.shape )
         M, N = rawDepthImage.shape 
 
         pc = rs.pointcloud()
         pc.map_to( color_frame )
         pointcloud = pc.calculate( depth_frame )
-        vtx = np.asanyarray( pointcloud.get_vertices() )
+        # vtx = np.asanyarray( pointcloud.get_vertices() )
+        vtx = np.asarray( pointcloud.get_vertices() ) # FIXME: WILL THIS ALLOW A FASTER, SANE RESHAPE?
+        print( vtx.shape )
 
         # WARNING: WAS THERE NOT A SANE WAY TO RESHAPE THIS?
         xyzArr = np.zeros( rawColorImage.shape )
-        rgbArr = np.zeros( rawColorImage.shape )
-        xyz    = deque()
-        rgb    = deque()
         k      = 0
 
         for i in range(M):
             for j in range(N):
                 vRow = vtx[k]
                 pnt  = [vRow[0], vRow[1], vRow[2]]
-                clr  = rawColorImage[i,j,:]
-                tot  = abs( sum( pnt ) )
                 xyzArr[i,j,:] = pnt
-                rgbArr[i,j,:] = clr
-                if minVal < tot < maxVal:
-                    xyz.append( pnt )
-                    rgb.append( clr )
                 k += 1
 
-        # setattr( rawRGBDImage, "xyzArr", xyzArr.copy() )
-        # rawRGBDImage.xyzArr = xyzArr.copy()
-
-        pcd = make_o3d_cpcd( list( xyz ), list( rgb ) )
-
-        return MPCD( pcd, rawRGBDImage, xyzArr, rgbArr )
+        return MPCD( rawRGBDImage, xyzArr, rawColorImage )
         
 
     def getPCD(self, save=False, adjust_extrinsics=False):
