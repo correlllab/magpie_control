@@ -367,28 +367,13 @@ class RealSense():
             convert_rgb_to_intensity = False
         )
 
-        M, N = rawDepthImage.shape 
-
         pc = rs.pointcloud()
         pc.map_to( color_frame )
         pointcloud = pc.calculate( depth_frame )
-        # vtx = np.asanyarray( pointcloud.get_vertices() )
-        vtx = np.asarray( pointcloud.get_vertices() ) # FIXME: WILL THIS ALLOW A FASTER, SANE RESHAPE?
-        print( vtx.shape )
+        # This is stupid, but it WORKS
+        vtx = np.array( np.array( pointcloud.get_vertices() ).tolist() ).reshape( rawColorImage.shape )
 
-        # WARNING: WAS THERE NOT A SANE WAY TO RESHAPE THIS?
-        xyzArr = np.zeros( rawColorImage.shape )
-        k      = 0
-
-        # FIXME: IF THE ABOVE SHAPE IS SANE, REMOVE ITEATION, RESHAPE, AND SAVE **DIRECTLY**
-        for i in range(M):
-            for j in range(N):
-                vRow = vtx[k]
-                pnt  = [vRow[0], vRow[1], vRow[2]]
-                xyzArr[i,j,:] = pnt
-                k += 1
-
-        return MPCD( rawRGBDImage, xyzArr, rawColorImage )
+        return MPCD( rawRGBDImage, vtx, rawColorImage )
         
 
     def getPCD(self, save=False, adjust_extrinsics=False):
