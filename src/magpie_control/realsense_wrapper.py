@@ -380,6 +380,7 @@ class RealSense():
         xyzArr = np.zeros( rawColorImage.shape )
         k      = 0
 
+        # FIXME: IF THE ABOVE SHAPE IS SANE, REMOVE ITEATION, RESHAPE, AND SAVE **DIRECTLY**
         for i in range(M):
             for j in range(N):
                 vRow = vtx[k]
