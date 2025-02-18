@@ -357,7 +357,7 @@ class RealSense():
 
         # unmodified rgb and z images as numpy arrays of 3 and 1 channels
         rawColorImage = np.array(alignedColorFrame.get_data()).copy()
-        rawDepthImage = np.asarray(alignedDepthFrame.get_data())
+        rawDepthImage = np.asarray(alignedDepthFrame.get_data()).copy()
 
         rawRGBDImage = rawRGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(
             o3d.geometry.Image( rawColorImage ),

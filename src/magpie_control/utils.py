@@ -36,7 +36,11 @@ def vec_diff_mag(v1, v2):
 
 def vec_unit(vec):
     """ Get the unit vector in the direction of 'vec' """
-    return np.divide(vec, np.linalg.norm(vec))  # NOTE: This will throw an error for zero-length 'vec'
+    mag = np.linalg.norm(vec)
+    if mag > 0.000001:
+        return np.divide( vec, mag ) 
+    else:
+        return vec
 
 
 def vec_angle_between(v1, v2):

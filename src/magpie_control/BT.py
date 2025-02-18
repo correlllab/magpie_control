@@ -71,6 +71,23 @@ class BasicBehavior( Behaviour ):
     
 
 
+class SequenceP( Sequence ):
+    """ Sequence that records paused status """
+
+    def __init__( self, *args, **kwargs ):
+        super().__init__( *args, **kwargs )
+        self.paused = False
+
+    def pause( self ):
+        """ Return status """
+        self.paused = True
+
+
+    def resume( self ):
+        """ Return status """
+        self.paused = False
+
+
 ########## MOVEMENT BEHAVIORS ######################################################################
 
 ### Constants ###
@@ -326,7 +343,7 @@ class Gripper_Aperture_OK( BasicBehavior ):
 
 ##### Jog_Safe ###################################
 
-class Jog_Safe( Sequence ):
+class Jog_Safe( SequenceP ):
     """ Move to a target by traversing at a safe altitude """
     # NOTE: This behavior should not, on its own, assume any gripper state
     
