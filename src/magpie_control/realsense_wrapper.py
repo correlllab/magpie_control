@@ -52,7 +52,7 @@ class MPCD:
         rgb     = deque()
         for i in range(M):
             for j in range(N):
-                if minVal <= sum( self.xyzArr[i,j,:] ) <= minVal:
+                if minVal <= sum( self.xyzArr[i,j,:] ) <= maxVal:
                     xyz.append( self.xyzArr[i,j,:] )
                     rgb.append( self.rgbArr[i,j,:] )
         return make_o3d_cpcd( list( xyz ), list( rgb ) )
