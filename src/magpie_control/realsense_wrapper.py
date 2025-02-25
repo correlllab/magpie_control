@@ -33,6 +33,30 @@ def make_o3d_cpcd( points : list, colors : list ):
     return cpcd
 
 
+def get_oPCD_aabb( cpcd ) -> np.ndarray:
+    """ Compute the Axis-Aligned Bounding Box """
+    rtnBB = np.zeros( (2,3,) )
+    try:
+        arr = np.array( cpcd.points ).reshape((-1,3,))
+        # print( arr.size )
+        ptMin = arr.min( axis = 0 )
+        ptMax = arr.max( axis = 0 )
+        print( f"AABB: {[ptMin, ptMax,]}" )
+        rtnBB[0,:] = ptMin
+        rtnBB[1,:] = ptMax
+    except ValueError:
+        print( f"`get_oPCD_aabb`: Array size error! {arr.shape}" )
+    return rtnBB
+
+
+def get_oPCD_aabb_volume( cpcd ) -> float:
+    """ Compute the volume of the Axis-Aligned Bounding Box """
+    rtnVol = 1.0
+    aabb   = get_oPCD_aabb( cpcd )
+    for i in range(3):
+        rtnVol *= (aabb[1,i]-aabb[0,i])
+    return rtnVol
+
 
 ########## HELPER CLASSES ##########################################################################
 
@@ -43,6 +67,22 @@ class MPCD:
         self.rgbd   = rgbd
         self.xyzArr = xyzArr
         self.rgbArr = rgbArr
+        self.aabb   = None
+
+
+    # def get_aabb( self ):
+    #     
+    #     rtnBB = np.zeros( (2,3,) )
+    #     rtnBB[0,:] = self.xyzArr.min( axis=(0,1,) )
+    #     rtnBB[1,:] = self.xyzArr.max( axis=(0,1,) )
+    #     print( f"AABB: {rtnBB}" )
+    #     self.aabb = rtnBB.copy()
+    #     return rtnBB
+
+
+    # def get_aabb_volume( self ):
+    #     
+    #     
 
 
     def get_full_cpcd( self, minVal = 0.070, maxVal = 18.00 ):
