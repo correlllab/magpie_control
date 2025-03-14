@@ -63,6 +63,10 @@ def get_oPCD_aabb_volume( cpcd ) -> float:
 class MPCD:
     """ Container class for 3D data """
 
+    def __len__( self ):
+        """ Return the number of points """
+        return len( self.xyzArr )
+
     def __init__( self, rgbd, xyzArr : np.ndarray, rgbArr : np.ndarray ):
         self.rgbd   = rgbd
         self.xyzArr = xyzArr
@@ -114,12 +118,6 @@ class MPCD:
         # denoise pcd
         _, ind = cpcd.remove_statistical_outlier( nb_neighbors = NB, std_ratio = 0.01 )
         return cpcd.select_by_index( ind )
-
-
-
-
-
-
 
 
 
