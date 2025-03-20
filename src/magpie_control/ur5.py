@@ -63,7 +63,6 @@ def get_USB_port_with_desc( descStr ):
     return match
 
 
-
 ########## UR5 INTERFACE ###########################################################################
 
 
@@ -73,7 +72,6 @@ class UR5_Interface:
     def set_tcp_to_camera_xform( self, xform ):
         """ Set the camera transform """
         self.camXform = np.array( xform )
-
 
     def __init__( self, robotIP = "192.168.0.4", cameraXform = None, freq = 500, record=False, record_path=None):
         """ Store connection params and useful constants """
@@ -95,7 +93,6 @@ class UR5_Interface:
         else:
             self.set_tcp_to_camera_xform( cameraXform )
 
-
     def start_gripper( self ):
         servoPort = get_USB_port_with_desc( "OpenRB" )
         if servoPort is not None:
@@ -107,8 +104,8 @@ class UR5_Interface:
         else:
             raise RuntimeError( "Could NOT connect to gripper Dynamixel board!" )
 
-    def start_ft_sensor( self, ip_address: str = "192.168.0.5", port: int = 49152):
-        self.ft_sensor = OptoForce(ip_address = ip_address, port = port)
+    def start_ft_sensor( self, ip_address: str = "192.168.0.5", port: int = 49152, poll_rate=50):
+        self.ft_sensor = OptoForce(ip_address = ip_address, port = port, poll_rate = poll_rate)
         self.ft_sensor.connect()
 
     def reset_gripper_overload( self, restart = True ):
@@ -170,7 +167,6 @@ class UR5_Interface:
         if self.ft_sensor is not None:
             self.ft_sensor.close()
         
-
     def get_name( self ):
         """ Get string that represents this robot """
         return self.name
@@ -186,7 +182,6 @@ class UR5_Interface:
         # return sm.SE3( pose_vector_to_homog_coord( self.recv.getActualTCPPose() ) )
         return pose_vector_to_homog_coord( self.recv.getActualTCPPose() )
 
-
     def getPose(self):
         # Returns the current pose of the last frame as a SE3 Object (4 x 4 Homegenous Transform)
         p = self.recv.getActualTCPPose()
@@ -194,7 +189,6 @@ class UR5_Interface:
         T_N = sm.SE3(poseMatrix)   # convert a pose vector to a matrix SE3 object, SE3 --> special euclidean in 3-dimensional space
         # T_N.plot(name="C")
         return T_N    # T_N is a homogenous transform
-
 
     def poseVectorToMatrix(self, poseVector):
         # Converts poseVector into an SE3 Object (4 x 4 Homegenous Transform)
@@ -213,7 +207,6 @@ class UR5_Interface:
             # pose_vector_to_homog_coord( self.recv.getActualTCPPose() )
         )
 
-
     def get_sensor_pose_in_robot_frame( self, sensorPose ) -> np.ndarray:
         """ Get a pose obtained from segmentation in the robot frame """
         return np.dot(
@@ -222,7 +215,6 @@ class UR5_Interface:
             # sensorPose,
             # self.get_cam_pose()
         )
-
 
     def moveJ( self, qGoal, rotSpeed = 1.05, rotAccel = 1.4, asynch = True ):
         """ qGoal is a 6 element numpy array of joint angles (radians) """
@@ -246,10 +238,28 @@ class UR5_Interface:
         self.moveJ( self.Q_safe, rotSpeed, rotAccel, asynch )
 
 
+    async def moveL_delta(robot, delta, frame="base", z_offset=0.0):
+        '''
+        moves the robot by a delta position (no orientation change)
+        in either the base or wrist frame
+        @param delta: relative position change along [x, y, z]
+        @param frame: base or wrist frame along which to execute motion
+        @param z_offset: offset in wrist_z, tunable constant to account for finicky TCP
+        '''
+        T = np.eye(4)
+        T[:3, 3] = delta
+        wrist = np.array(robot.getPose()) 
+        wrist[2, 3] += z_offset
+        goal = None
+        if frame=="wrist": # move w.r.t wrist frame
+            goal = wrist @ T
+        elif frame=="base": # move w.r.t base frame
+            goal = T @ wrist
+        robot.moveL(goal)
+
     def stop_recording(self):
         if self.record:
             self.recv.stopFileRecording()
-
 
     def p_moving( self ):
         """ Return True if the robot is in motion, Otherwise return False """
@@ -265,8 +275,8 @@ class UR5_Interface:
     def set_gripper( self, width ):
         """ Computes the servo angles needed for the jaws to be width mm apart """
         # Sends command over serial to the gripper to hold those angles
-        # self.gripper.position( self.gripper.distance2theta( width * 1000.0 ) )
-        self.gripper.set_goal_aperture( width * 1000.0, finger = 'both', debug = False, record_load = False )
+        # self.gripper.position( self.gripper.distance2theta( width) )
+        self.gripper.set_goal_aperture( width, finger = 'both', debug = False, record_load = False )
 
 
     def set_grip_N( self, N ):
