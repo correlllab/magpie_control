@@ -32,7 +32,7 @@ from magpie_control.arm_utils import RunUntilAnyT, FTCondition
 ##### Constants ##################################
 from magpie_control.homog_utils import homog_xform, R_krot
 
-_CAMERA_XFORM = homog_xform( # TCP --to-> Camera
+_CAMERA_XFORM = homog_xform( # TCP --to-> Camera is a rotation of -90 degrees about the z-axis
     rotnMatx = R_krot( [0.0, 0.0, 1.0], -np.pi/2.0 ),
     posnVctr = [0.0, 0.0,  0.120]
     # posnVctr = [-0.0173, -0.0018,  0.0183] # 2025-02-06: This was a terrible idea
@@ -88,6 +88,7 @@ class UR5_Interface:
         self.record_path = record_path
         self.gripClos_m = 0.002
         self.camXform   = np.eye(4)
+        self.magpie_tooltip = [0.012, 0.006, 0.231] # wrist-relative xyz tooltip offset for magpie gripper
         if cameraXform is None:
             self.set_tcp_to_camera_xform( _CAMERA_XFORM )
         else:
@@ -220,10 +221,12 @@ class UR5_Interface:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveJ( list( qGoal ), rotSpeed, rotAccel, asynch )
 
-    def moveL( self, poseMatrix, linSpeed = 0.25, linAccel = 0.5, asynch = True ):
-        """ Moves tool tip pose linearly in cartesian space to goal pose (requires tool pose to be configured) """
-        # poseMatrix is a SE3 Object (4 x 4 Homegenous Transform) or numpy array
-        # tool pose defined relative to the end of the gripper when closed
+    def moveL( self, poseMatrix, linSpeed = 0.25, linAccel = 0.5, asynch = True):
+        """ 
+        Moves tool tip pose linearly in cartesian space to goal pose
+        tool pose defined relative to the end of the gripper when closed
+        poseMatrix is a SE3 Object (4 x 4 Homegenous Transform) or numpy array
+        """
         if self.record:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveL( homog_coord_to_pose_vector( poseMatrix ), linSpeed, linAccel, asynch )
@@ -232,7 +235,7 @@ class UR5_Interface:
         """ Moves the arm linearly in joint space to home pose """
         self.moveJ( self.Q_safe, rotSpeed, rotAccel, asynch )
 
-    async def moveL_delta(robot, delta, frame="base", z_offset=0.0):
+    async def moveL_delta(self, delta, frame="base", z_offset=0.0):
         '''
         moves the robot by a delta position (no orientation change)
         in either the base or wrist frame
@@ -241,15 +244,23 @@ class UR5_Interface:
         @param z_offset: offset in wrist_z, tunable constant to account for finicky TCP
         '''
         T = np.eye(4)
+        if frame=="wrist": delta[2] += z_offset
         T[:3, 3] = delta
-        wrist = np.array(robot.getPose()) 
-        wrist[2, 3] += z_offset
+        wrist = np.array(self.getPose()) 
         goal = None
         if frame=="wrist": # move w.r.t wrist frame
             goal = wrist @ T
         elif frame=="base": # move w.r.t base frame
+            wrist[2, 3] += z_offset
             goal = T @ wrist
-        robot.moveL(goal)
+        self.moveL(goal)
+
+    def toggle_teach_mode(self):
+        status = self.ctrl.getRobotStatus()
+        if status == 7: # in teach mode
+            self.ctrl.endTeachMode()
+        elif status == 3: # regular control mode
+            self.ctrl.teachMode()
 
     def stop_recording(self):
         if self.record:
