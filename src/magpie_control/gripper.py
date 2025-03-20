@@ -173,6 +173,12 @@ class Gripper:
         return self.theta_to_z(self.aperture_to_theta(aperture), debug=debug)
 
     def set_goal_aperture(self, aperture, finger='both', debug=False, record_load=True):
+        '''
+        @param aperture goal gripper width in mm
+        '''
+        # clamp aperture to 0-106mm
+        aperture = min(106, aperture)
+        aperture = max(0, aperture)
         aperture = (aperture / 2.0) if finger=='both' else aperture
         # if both, just calculates delta_ticks for right finger (ugly code).
         delta_ticks = self.theta_to_position(
