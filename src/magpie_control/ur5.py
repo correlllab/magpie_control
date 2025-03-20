@@ -171,11 +171,9 @@ class UR5_Interface:
         """ Get string that represents this robot """
         return self.name
 
-
     def get_joint_angles( self ):
         """ Returns a 6 element numpy array of joint angles (radians) """
         return np.array( self.recv.getActualQ() )
-
 
     def get_tcp_pose( self ) -> np.ndarray:
         """ Returns the current pose of the gripper as a SE3 Object (4 x 4 Homegenous Transform) """
@@ -195,7 +193,6 @@ class UR5_Interface:
         # poseVector is a 6 element list of [x, y, z, rX, rY, rZ]
         T_N = sm.SE3(poses.pose_vec_to_mtrx(poseVector))
         return T_N
-
 
     def get_cam_pose( self ) -> np.ndarray:
         """ Returns the current pose of the gripper as a SE3 Object (4 x 4 Homegenous Transform) """
@@ -223,7 +220,6 @@ class UR5_Interface:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveJ( list( qGoal ), rotSpeed, rotAccel, asynch )
 
-
     def moveL( self, poseMatrix, linSpeed = 0.25, linAccel = 0.5, asynch = True ):
         """ Moves tool tip pose linearly in cartesian space to goal pose (requires tool pose to be configured) """
         # poseMatrix is a SE3 Object (4 x 4 Homegenous Transform) or numpy array
@@ -232,11 +228,9 @@ class UR5_Interface:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveL( homog_coord_to_pose_vector( poseMatrix ), linSpeed, linAccel, asynch )
 
-
     def move_safe( self, rotSpeed = 1.05, rotAccel = 1.4, asynch = True ):
         """ Moves the arm linearly in joint space to home pose """
         self.moveJ( self.Q_safe, rotSpeed, rotAccel, asynch )
-
 
     async def moveL_delta(robot, delta, frame="base", z_offset=0.0):
         '''
@@ -265,19 +259,16 @@ class UR5_Interface:
         """ Return True if the robot is in motion, Otherwise return False """
         return not self.ctrl.isSteady()
 
-
     def open_gripper( self ):
         """ Open gripper to the fullest extent """
         # self.gripper.openGripper()
         self.gripper.open_gripper()
-
 
     def set_gripper( self, width ):
         """ Computes the servo angles needed for the jaws to be width mm apart """
         # Sends command over serial to the gripper to hold those angles
         # self.gripper.position( self.gripper.distance2theta( width) )
         self.gripper.set_goal_aperture( width, finger = 'both', debug = False, record_load = False )
-
 
     def set_grip_N( self, N ):
         """ Set the gripper fingers to N [N] """
@@ -287,17 +278,14 @@ class UR5_Interface:
         else:
             print( f"Force value {N} is out of range (0-16 N)" )
 
-
     def close_gripper( self ):
         """ Set the gripper fingers to near-zero gap """
         # self.set_gripper( self.gripClos_m )
         self.gripper.close_gripper()
 
-
     def get_gripper_sep( self ):
         """ Return the separation between the gripper fingers in [m] """
         return self.gripper.get_aperture( finger = 'both' ) / 1000.0
-
 
     def align_tcp( self, lock_roll = False, lock_pitch = False, lock_yaw = False ):
         """
