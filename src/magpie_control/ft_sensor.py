@@ -53,10 +53,13 @@ class OptoForceCmd:
 
 
 class OptoForce: 
-    def __init__(self, ip_address: str = "192.168.0.5", port: int = 49152):
+    def __init__(self, ip_address: str = "192.168.0.5", port: int = 49152, poll_rate=50):
         self.sensorAddr = (ip_address, port)
         self.sock_r = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.cmd = OptoForceCmd()
+        if poll_rate not in [50, 100]:
+            raise ValueError("Poll rate must be 50 or 100")
+        self.poll_rate_cmd = self.cmd.COMMANDS['set_speed_50'] if poll_rate == 50 else self.cmd.COMMANDS['set_speed_100']
         
     def connect(self):
         """ Connect to the sensor """
@@ -67,7 +70,7 @@ class OptoForce:
 
     def prime_sensor(self):
         """ Prime the sensor for data collection """
-        self.send_datagram(self.cmd.COMMANDS['set_speed_50'])
+        self.send_datagram(self.poll_rate_cmd)
         self.send_datagram(self.cmd.COMMANDS['set_filter_0'])
         self.send_datagram(self.cmd.COMMANDS['set_bias_1'])
 
