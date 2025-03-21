@@ -231,6 +231,12 @@ class UR5_Interface:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveL( homog_coord_to_pose_vector( poseMatrix ), linSpeed, linAccel, asynch )
 
+    def speedL( self, speedL_cmd, linSpeed = 0.25, linAccel = 0.5 ):
+        """ Set the linear speed and acceleration for the robot """
+        if self.record:
+            self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_qd", "actual_TCP_pose", "actual_TCP_speed"])
+        self.ctrl.speedL( speedL_cmd, linSpeed, linAccel )
+
     def move_safe( self, rotSpeed = 1.05, rotAccel = 1.4, asynch = True ):
         """ Moves the arm linearly in joint space to home pose """
         self.moveJ( self.Q_safe, rotSpeed, rotAccel, asynch )
@@ -243,9 +249,10 @@ class UR5_Interface:
         @param frame: base or wrist frame along which to execute motion
         @param z_offset: offset in wrist_z, tunable constant to account for finicky TCP
         '''
-        T = np.eye(4)
+        if frame not in ["base", "wrist"]:
+            raise ValueError("frame must be either 'base' or 'wrist'")
         if frame=="wrist": delta[2] += z_offset
-        T[:3, 3] = delta
+        T = sm.SE3(delta).A
         wrist = np.array(self.getPose()) 
         goal = None
         if frame=="wrist": # move w.r.t wrist frame
@@ -254,6 +261,19 @@ class UR5_Interface:
             wrist[2, 3] += z_offset
             goal = T @ wrist
         self.moveL(goal)
+
+    async def speedL_TCP(self, wrist_speedL_cmd, linSpeed = 0.25, linAccel = 0.5):
+        '''
+        moves the tool at some velocity in the wrist frame
+        @param wrist_speedL_cmd: velocity command in wrist frame, [vx, vy, vz, wx, wy, wz]
+        '''
+        v_w = wrist_speedL_cmd[:3]
+        w_w = wrist_speedL_cmd[3:]
+        R = np.array(self.getPose())[:3, :3]
+        v_b = R @ v_w
+        w_b = R @ w_w
+        speedL_cmd = np.hstack((v_b, w_b))
+        self.speedL(speedL_cmd, linSpeed, linAccel)
 
     def toggle_teach_mode(self):
         status = self.ctrl.getRobotStatus()
