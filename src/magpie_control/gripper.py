@@ -195,10 +195,9 @@ class Gripper:
             plt.show()
 
 
-    def reset_packet_overload( self, force_limit=-1 ):
+    def reset_packet_overload( self, force_limit=2 ):
         self.Finger1.set_torque_enable(True)
         self.Finger2.set_torque_enable(True)
-        force_limit = 2 if force_limit == -1 else self.N_to_load(force_limit)
         self.set_force(force_limit, 'both')
 
 
