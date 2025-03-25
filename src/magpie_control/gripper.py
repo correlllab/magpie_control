@@ -118,9 +118,8 @@ class Gripper:
     def reset_packet_overload( self, force_limit=-1 ):
         self.Finger1.set_torque_enable(True)
         self.Finger2.set_torque_enable(True)
-        torque_limit = self.default_parameters['torque'] if force_limit == -1 else self.N_to_load(force_limit)
-        self.Finger1.set_torque_limit(torque_limit)
-        self.Finger2.set_torque_limit(torque_limit)
+        force_limit = 2 if force_limit == -1 else self.N_to_load(force_limit)
+        self.set_force(force_limit, 'both')
 
 
     def theta_limit(self, delta_theta):
