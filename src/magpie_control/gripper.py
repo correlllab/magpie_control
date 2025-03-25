@@ -115,10 +115,10 @@ class Gripper:
         time.sleep(0.1) # 100ms
 
 
-    def reset_packet_overload( self, torque_limit=-1 ):
+    def reset_packet_overload( self, force_limit=-1 ):
         self.Finger1.set_torque_enable(True)
         self.Finger2.set_torque_enable(True)
-        torque_limit = self.default_parameters['torque'] if torque_limit == -1 else torque_limit
+        torque_limit = self.default_parameters['torque'] if force_limit == -1 else self.N_to_load(force_limit)
         self.Finger1.set_torque_limit(torque_limit)
         self.Finger2.set_torque_limit(torque_limit)
 
