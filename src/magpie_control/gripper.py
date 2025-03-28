@@ -149,6 +149,17 @@ class Gripper:
         else:
             return np.mean(forces)
 
+    async def reset_and_close_gripper(self, force_limit=2, duration=-1):
+        start = time.time()
+        if duration < 0:
+            self.reset_packet_overload(force_limit=force_limit)
+            self.close_gripper()
+            return
+        while time.time() - start < duration:
+            self.reset_packet_overload(force_limit=force_limit)
+            self.close_gripper()
+            await asyncio.sleep(0.25)
+
     def adaptive_grasp(self, kp_F=0.1, kp_x=0.1, f_err_threshold=0.05, init_force=1.5, init_aperture=20, duration=10, plot=False):
         # @param kp_F: proportional gain on applied force for the adaptive grasp controller
         # @param kp_x: proportional gain on goal aperture for the adaptive grasp controller
