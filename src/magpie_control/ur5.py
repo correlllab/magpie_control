@@ -132,7 +132,7 @@ class UR5_Interface:
 
     async def force_position_control(self, wrench=np.zeros(6),
                             init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
-                            duration = 5, tolerance = 0.1, p=0.0005):
+                            duration = 5, tolerance = 0.1, p=0.0005, control_type="bang_bang"):
 
         def get_control_update(cmd=np.zeros(6), ft_goal=np.zeros(6), 
                             ft_meas=np.zeros(6), p=0.0005, control_type="bang_bang"):
@@ -143,7 +143,9 @@ class UR5_Interface:
                 cmd = cmd * sign
                 return cmd
             elif control_type == "proportional":
-                return cmd + p * (ft_goal - ft_meas)
+                update = p * (ft_goal - ft_meas)
+                update[ft_goal == 0] = 0
+                return cmd - update
             return np.zeros(6)
 
         self.cf_t, self.ft_t = [], []
@@ -158,7 +160,7 @@ class UR5_Interface:
             ft_meas = self.get_ft_data()
             self.cf_t.append(self.gripper.interval_force_measure(self.gripper.latency, 5, finger='both', distinct=True))
             self.ft_t.append(ft_meas)
-            speedL_cmd_w = get_control_update(speedL_cmd_w, ft_goal, ft_meas, p=p, control_type="bang_bang")
+            speedL_cmd_w = get_control_update(speedL_cmd_w, ft_goal, ft_meas, p=p, control_type=control_type)
             await self.speedL_TCP(np.array(speedL_cmd_w))
             pose = np.array(self.getPose())
             distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
