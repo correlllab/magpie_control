@@ -1,8 +1,9 @@
 ########## INIT ####################################################################################
 
 ##### Imports ####################################
-
+import time
 from time import sleep
+import asyncio
 
 # Numpy
 import numpy as np
@@ -89,6 +90,8 @@ class UR5_Interface:
         self.gripClos_m = 0.002
         self.camXform   = np.eye(4)
         self.magpie_tooltip = [0.012, 0.006, 0.231] # wrist-relative xyz tooltip offset for magpie gripper
+        self.debug      = False
+        self.cf_t, self.ft_t = [], []
         if cameraXform is None:
             self.set_tcp_to_camera_xform( _CAMERA_XFORM )
         else:
@@ -126,6 +129,48 @@ class UR5_Interface:
         self.moveJ(qGoal, rotSpeed = speed, asynch = True)
         self.threaded_conditional_stop(condition.cond)
         #TODO: development is here. Test if working?
+
+    async def force_position_control(self, wrench=np.zeros(6),
+                            init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
+                            duration = 5, tolerance = 0.1, p=0.0005):
+
+        def get_control_update(cmd=np.zeros(6), ft_goal=np.zeros(6), 
+                            ft_meas=np.zeros(6), p=0.0005, control_type="bang_bang"):
+            if control_type == "bang_bang":
+                sign = np.ones(6)
+                sign[np.abs(ft_meas) > np.abs(ft_goal)] = -1
+                # print(f"Flipping: {[axes[i] for i in range(6) if sign[i] == -1 and wrench[i] != 0]}")
+                cmd = cmd * sign
+                return cmd
+            elif control_type == "proportional":
+                return cmd + p * (ft_goal - ft_meas)
+            return np.zeros(6)
+
+        self.cf_t, self.ft_t = [], []
+        pose = np.array(self.getPose())
+        T_w = sm.SE3(goal_delta).A
+        goal_pose = pose @ T_w
+        distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
+        ft_goal = np.array(wrench).clip(min=-1*max_force, max=max_force)
+        speedL_cmd_w = init_cmd # initial cmd
+        start = time.time()
+        while time.time() - start < duration and distance > tolerance:
+            ft_meas = self.get_ft_data()
+            self.cf_t.append(self.gripper.interval_force_measure(self.gripper.latency, 5, finger='both', distinct=True))
+            self.ft_t.append(ft_meas)
+            speedL_cmd_w = get_control_update(speedL_cmd_w, ft_goal, ft_meas, p=p, control_type="bang_bang")
+            await self.speedL_TCP(np.array(speedL_cmd_w))
+            pose = np.array(self.getPose())
+            distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
+            if self.debug:
+                print(f"{ft_meas=}")
+                print(f"{pose[:3, 3]=}\n{goal_pose[:3, 3]=}")
+                print(f"Distance: {distance:.3f}")
+                print(f"TCP velocity: {np.array(self.recv.getActualTCPSpeed())}")
+            await asyncio.sleep(0.01)
+        
+        return self.cf_t, self.ft_t
+
 
     def threaded_conditional_stop(self, condition = 'dummy'):
         def end_cond():
