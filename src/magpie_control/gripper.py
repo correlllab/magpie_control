@@ -130,15 +130,24 @@ class Gripper:
         time.sleep(0.1) # 100ms
 
     # measure contact force at specified intervals
-    def interval_force_measure(self, delay, iterations, finger='both'):
-        # @param delay: time in seconds to wait between each force measurement
-        # @param iterations: number of force measurements to take
+    def interval_force_measure(self, delay, iterations, finger='both', distinct=False):
+        '''
+        @param delay: time in seconds to wait between each force measurement
+        @param iterations: number of force measurements to take
+        @param distinct: if finger is 'both', return distinct forces for each finger, else return average
+        '''
         forces = []
         for _ in range(iterations):
-            force = np.mean(self.get_force(finger=finger))
+            force = self.get_force(finger=finger)
+            if not distinct:
+                force = np.mean(force)
             forces.append(force)
             time.sleep(delay)
-        return np.mean(forces)
+        if distinct and finger=='both':
+            # average force for each finger, forces look like [[fl1, fr2], [fl1, fr2], ...]
+            return [np.mean([f[0] for f in forces]), np.mean([f[1] for f in forces])]
+        else:
+            return np.mean(forces)
 
     def adaptive_grasp(self, kp_F=0.1, kp_x=0.1, f_err_threshold=0.05, init_force=1.5, init_aperture=20, duration=10, plot=False):
         # @param kp_F: proportional gain on applied force for the adaptive grasp controller
