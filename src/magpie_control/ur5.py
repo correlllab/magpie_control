@@ -91,6 +91,7 @@ class UR5_Interface:
         self.camXform   = np.eye(4)
         self.magpie_tooltip = [0.012, 0.006, 0.231] # wrist-relative xyz tooltip offset for magpie gripper
         self.debug      = False
+        self.home       = None # initialized in start()
         self.z_offset   = 0.02 # 2cm z offset for magpie gripper, just a tunable value to smooth things over
         self.provide_gripper = provide_gripper # disable gripper by default for separate control
         self.cf_t, self.ft_t = [], []
@@ -199,6 +200,7 @@ class UR5_Interface:
         """ Connect to RTDE and the gripper """
         self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
         self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
+        self.home = self.getPose()
         if self.provide_gripper: self.start_gripper()
 
     def halt( self ):
@@ -285,17 +287,19 @@ class UR5_Interface:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveL( homog_coord_to_pose_vector( poseMatrix ), linSpeed, linAccel, asynch )
 
-    def moveL_translation( self, poseMatrix, TCP=[0.012, 0.006, 0.231], z_offset=None, linSpeed = 0.25, linAccel = 0.5, asynch = True):
+    def moveL_translation_tooltip( self, poseMatrix, TCP=np.zeros(3), z_offset=None, linSpeed = 0.25, linAccel = 0.5, asynch = True):
         """ 
-        Moves tool tip pose linearly in cartesian space to goal pose
-        tool pose defined relative to the end of the gripper when closed
-        poseMatrix is a SE3 Object (4 x 4 Homegenous Transform) or numpy array
+        translates the tool tip pose in cartesian space to goal position (no orientation)
+        standard moveL moves on the wrist frame
         """
         z_offset = self.z_offset if z_offset is None else z_offset
-        TCP[2] -= z_offset
-        p = poseMatrix[:3, 3] - np.array(TCP)
+        tooltip = np.array(self.magpie_tooltip).copy() + np.array(TCP).copy()
+        tooltip[2] -= z_offset
+        p = poseMatrix[:3, 3] - np.array(tooltip)
         T = sm.SE3(p).A
+        print(f"Tooltip: {tooltip}")
         goal = np.array(self.getPose()) @ T
+        print(f"Goal Pos: {goal[:3, 3]}")
         self.moveL(goal, linSpeed, linAccel, asynch)
 
     def speedL( self, speedL_cmd, linSpeed = 0.25, linAccel = 0.5 ):
