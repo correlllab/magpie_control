@@ -74,7 +74,7 @@ class UR5_Interface:
         """ Set the camera transform """
         self.camXform = np.array( xform )
 
-    def __init__( self, robotIP = "192.168.0.4", cameraXform = None, freq = 500, record=False, record_path=None):
+    def __init__( self, robotIP = "192.168.0.4", cameraXform = None, freq = 500, record=False, record_path=None, provide_gripper=False ):
         """ Store connection params and useful constants """
         self.name       = "UR5_CB3"
         self.robotIP    = robotIP # IP address of the robot
@@ -91,6 +91,8 @@ class UR5_Interface:
         self.camXform   = np.eye(4)
         self.magpie_tooltip = [0.012, 0.006, 0.231] # wrist-relative xyz tooltip offset for magpie gripper
         self.debug      = False
+        self.z_offset   = 0.02 # 2cm z offset for magpie gripper, just a tunable value to smooth things over
+        self.provide_gripper = provide_gripper # disable gripper by default for separate control
         self.cf_t, self.ft_t = [], []
         if cameraXform is None:
             self.set_tcp_to_camera_xform( _CAMERA_XFORM )
@@ -114,11 +116,14 @@ class UR5_Interface:
 
     def reset_gripper_overload( self, restart = True ):
         """ Attempt to clear an overload error """
-        self.gripper.reset_packet_overload()
-        self.gripper.disconnect()
-        if restart:
-            sleep( 0.25 ) 
-            self.start_gripper()
+        if self.provide_gripper:
+            self.gripper.reset_packet_overload()
+            self.gripper.disconnect()
+            if restart:
+                sleep( 0.25 ) 
+                self.start_gripper()
+        else:
+            print( "Gripper not connected, cannot reset overload" )
 
     def get_ft_data(self):
         return self.ft_sensor.recv_datum()
@@ -190,11 +195,11 @@ class UR5_Interface:
         sleep(0.1)
         sched.run()
 
-    def start( self ):
+    def start( self):
         """ Connect to RTDE and the gripper """
         self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
         self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
-        self.start_gripper()
+        if self.provide_gripper: self.start_gripper()
 
     def halt( self ):
         """ I don't actually know if this is safe to do! """
@@ -212,7 +217,8 @@ class UR5_Interface:
         """ Shutdown robot and gripper connections """
         self.ctrl.servoStop()
         self.ctrl.stopScript()
-        self.gripper.disconnect()
+        if self.provide_gripper:
+            self.gripper.disconnect()
         if self.ft_sensor is not None:
             self.ft_sensor.close()
         
@@ -279,6 +285,19 @@ class UR5_Interface:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveL( homog_coord_to_pose_vector( poseMatrix ), linSpeed, linAccel, asynch )
 
+    def moveL_translation( self, poseMatrix, TCP=[0.012, 0.006, 0.231], z_offset=None, linSpeed = 0.25, linAccel = 0.5, asynch = True):
+        """ 
+        Moves tool tip pose linearly in cartesian space to goal pose
+        tool pose defined relative to the end of the gripper when closed
+        poseMatrix is a SE3 Object (4 x 4 Homegenous Transform) or numpy array
+        """
+        z_offset = self.z_offset if z_offset is None else z_offset
+        TCP[2] -= z_offset
+        p = poseMatrix[:3, 3] - np.array(TCP)
+        T = sm.SE3(p).A
+        goal = np.array(self.getPose()) @ T
+        self.moveL(goal, linSpeed, linAccel, asynch)
+
     def speedL( self, speedL_cmd, linSpeed = 0.25, linAccel = 0.5 ):
         """ Set the linear speed and acceleration for the robot """
         if self.record:
@@ -289,7 +308,28 @@ class UR5_Interface:
         """ Moves the arm linearly in joint space to home pose """
         self.moveJ( self.Q_safe, rotSpeed, rotAccel, asynch )
 
-    async def moveL_delta(self, delta, frame="base", z_offset=0.0):
+    def moveL_delta(self, delta, frame="base", z_offset=0.0):
+        '''
+        moves the robot by a delta position (no orientation change)
+        in either the base or wrist frame
+        @param delta: relative position change along [x, y, z]
+        @param frame: base or wrist frame along which to execute motion
+        @param z_offset: offset in wrist_z, tunable constant to account for finicky TCP
+        '''
+        if frame not in ["base", "wrist"]:
+            raise ValueError("frame must be either 'base' or 'wrist'")
+        if frame=="wrist": delta[2] += z_offset
+        T = sm.SE3(delta).A
+        wrist = np.array(self.getPose()) 
+        goal = None
+        if frame=="wrist": # move w.r.t wrist frame
+            goal = wrist @ T
+        elif frame=="base": # move w.r.t base frame
+            wrist[2, 3] += z_offset
+            goal = T @ wrist
+        self.moveL(goal)
+
+    async def moveL_delta_async(self, delta, frame="base", z_offset=0.0):
         '''
         moves the robot by a delta position (no orientation change)
         in either the base or wrist frame
