@@ -411,6 +411,7 @@ class Gripper:
     def get_force(self, finger='both'):
         load = self.get_load(finger=finger)
         if finger=='both':
+            # [left, right]
             return [self.load_to_N(load[1]), self.load_to_N(load[0])]
         else:
             return self.load_to_N(load)
