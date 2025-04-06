@@ -417,12 +417,12 @@ class UR5_Interface:
         return self.gripper.get_aperture( finger = 'both' ) / 1000.0
 
     # rotation matrix with -1, 1, -1 on diagonal
-    def orient_TCP_down(r):
+    def orient_TCP_down( self ):
         """orient TCP facing down toward the table, z-axis down"""
         R = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, -1]])
-        p = np.array(r.getPose())
+        p = np.array(self.getPose())
         p[:3, :3] = R
-        r.moveL(p)
+        self.moveL(p)
 
     def align_tcp( self, lock_roll = False, lock_pitch = False, lock_yaw = False ):
         """
