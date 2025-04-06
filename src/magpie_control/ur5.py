@@ -138,7 +138,7 @@ class UR5_Interface:
         self.threaded_conditional_stop(condition.cond)
         #TODO: development is here. Test if working?
 
-    async def force_position_control(self, wrench=np.zeros(6),
+    def force_position_control(self, wrench=np.zeros(6), grasp_force=2.0,
                             init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
                             duration = 5, tolerance = 0.1, p=0.0005, control_type="bang_bang"):
 
@@ -165,22 +165,46 @@ class UR5_Interface:
         ft_goal = np.array(wrench).clip(min=-1*max_force, max=max_force)
         speedL_cmd_w = init_cmd # initial cmd
         start = time.time()
+        ft_prev = self.get_ft_data()
+        if self.gripper is None:
+            print("Connecting gripper. This is incompatible with a separate Gripper connection")
+            self.start_gripper()
+
         while time.time() - start < duration and distance > tolerance:
-            ft_meas = self.get_ft_data()
+            ft_curr = self.get_ft_data()
+            if ft_curr == []: ft_curr = ft_prev # handle null reading from optoforce
+            self.gripper.reset_and_close_gripper(force_limit=grasp_force)
             self.cf_t.append(self.gripper.interval_force_measure(self.gripper.latency, 5, finger='both', distinct=True))
-            self.ft_t.append(ft_meas)
-            speedL_cmd_w = get_control_update(speedL_cmd_w, ft_goal, ft_meas, p=p, control_type=control_type)
-            await self.speedL_TCP(np.array(speedL_cmd_w))
+            self.ft_t.append(ft_curr)
+            speedL_cmd_w = get_control_update(speedL_cmd_w, ft_goal, ft_curr, p=p, control_type=control_type)
+            self.speedL_TCP(np.array(speedL_cmd_w))
             pose = np.array(self.getPose())
             distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
+            ft_prev = ft_curr
             if self.debug:
-                print(f"{ft_meas=}")
+                print(f"{ft_curr=}")
                 print(f"{pose[:3, 3]=}\n{goal_pose[:3, 3]=}")
                 print(f"Distance: {distance:.3f}")
                 print(f"TCP velocity: {np.array(self.recv.getActualTCPSpeed())}")
-            await asyncio.sleep(0.01)
         
         return self.cf_t, self.ft_t
+
+    async def force_position_control_async(self, wrench=np.zeros(6),
+                                grasp_force=2.0,
+                                init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
+                                duration = 5, tolerance = 0.1, p=0.0005, control_type="bang_bang"):
+        return await asyncio.to_thread(
+            self.force_position_control,
+            wrench=wrench,
+            grasp_force=grasp_force,
+            init_cmd=init_cmd,
+            goal_delta=goal_delta,
+            max_force=max_force,
+            duration=duration,
+            tolerance=tolerance,
+            p=p,
+            control_type=control_type
+        )
 
     def threaded_conditional_stop(self, condition = 'dummy'):
         def end_cond():
@@ -356,7 +380,7 @@ class UR5_Interface:
             goal = T @ wrist
         self.moveL(goal)
 
-    async def speedL_TCP(self, wrist_speedL_cmd, linSpeed = 0.25, linAccel = 0.5):
+    def speedL_TCP(self, wrist_speedL_cmd, linSpeed = 0.25, linAccel = 0.5):
         '''
         moves the tool at some velocity in the wrist frame
         @param wrist_speedL_cmd: velocity command in wrist frame, [vx, vy, vz, wx, wy, wz]
