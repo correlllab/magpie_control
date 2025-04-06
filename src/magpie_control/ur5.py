@@ -180,7 +180,6 @@ class UR5_Interface:
         
         return self.cf_t, self.ft_t
 
-
     def threaded_conditional_stop(self, condition = 'dummy'):
         def end_cond():
             nonlocal self
@@ -387,6 +386,13 @@ class UR5_Interface:
         # self.gripper.openGripper()
         self.gripper.open_gripper()
 
+    def set_home( self, pose ):
+        """ Set the home pose of the robot """
+        # check that pose is a 4x4 homogeneous matrix
+        if pose.shape != (4, 4):
+            raise ValueError( "Pose must be a 4x4 homogeneous matrix" )
+        self.home = pose
+
     def set_gripper( self, width ):
         """ Computes the servo angles needed for the jaws to be width mm apart """
         # Sends command over serial to the gripper to hold those angles
@@ -409,6 +415,14 @@ class UR5_Interface:
     def get_gripper_sep( self ):
         """ Return the separation between the gripper fingers in [m] """
         return self.gripper.get_aperture( finger = 'both' ) / 1000.0
+
+    # rotation matrix with -1, 1, -1 on diagonal
+    def orient_TCP_down(r):
+        """orient TCP facing down toward the table, z-axis down"""
+        R = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, -1]])
+        p = np.array(r.getPose())
+        p[:3, :3] = R
+        r.moveL(p)
 
     def align_tcp( self, lock_roll = False, lock_pitch = False, lock_yaw = False ):
         """
