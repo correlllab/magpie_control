@@ -129,16 +129,16 @@ class Gripper:
         self.Finger2.set_goal_position(close2)
         time.sleep(0.1) # 100ms
 
-    async def reset_and_close_gripper(gripper, force_limit=2, duration=-1):
+    async def reset_and_close_gripper(self, force_limit=2, duration=-1):
         def close_gripper(g, force=2):
-            g.reset_packet_overload(force_limit=force_limit)
-            g.close_gripper()
+            self.reset_packet_overload(force_limit=force_limit)
+            self.close_gripper()
         start = time.time()
         if duration < 0:
-            close_gripper(gripper, force=force_limit)
+            close_gripper(force=force_limit)
             return
         while time.time() - start < duration:
-            close_gripper(gripper, force=force_limit)
+            close_gripper(force=force_limit)
             await asyncio.sleep(0.25)
 
     # measure contact force at specified intervals
