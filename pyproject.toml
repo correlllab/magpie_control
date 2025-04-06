@@ -30,6 +30,7 @@ dependencies = [
   'ur_rtde',
   'pyserial',
   'psutil',
+  'rerun-sdk'
 ]
 
 [project.urls]
