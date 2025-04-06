@@ -138,9 +138,9 @@ class UR5_Interface:
         self.threaded_conditional_stop(condition.cond)
         #TODO: development is here. Test if working?
 
-    def force_position_control(self, wrench=np.zeros(6), grasp_force=2.0,
-                            init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
-                            duration = 5, tolerance = 0.1, p=0.0005, control_type="bang_bang"):
+    def force_position_control(self, wrench=np.zeros(6), grasp_force=2.0, init_cmd=np.zeros(6),
+                            goal_delta=[0,0,0], max_force=10, duration = 5, tolerance = 0.1, p=0.0005,
+                            camera_dict={}, control_type="bang_bang"):
 
         def get_control_update(cmd=np.zeros(6), ft_goal=np.zeros(6), 
                             ft_meas=np.zeros(6), p=0.0005, control_type="bang_bang"):
@@ -176,6 +176,10 @@ class UR5_Interface:
             self.gripper.reset_and_close_gripper(force_limit=grasp_force)
             self.cf_t.append(self.gripper.interval_force_measure(self.gripper.latency, 5, finger='both', distinct=True))
             self.ft_t.append(ft_curr)
+            if len(camera_dict) > 0:
+                for camera in camera_dict:
+                    camera.take_image_blocking(filepath=camera_dict[camera], buffer=True, depth=True)
+
             speedL_cmd_w = get_control_update(speedL_cmd_w, ft_goal, ft_curr, p=p, control_type=control_type)
             self.speedL_TCP(np.array(speedL_cmd_w))
             pose = np.array(self.getPose())
@@ -189,10 +193,10 @@ class UR5_Interface:
         
         return self.cf_t, self.ft_t
 
-    async def force_position_control_async(self, wrench=np.zeros(6),
-                                grasp_force=2.0,
+    async def force_position_control_async(self, wrench=np.zeros(6), grasp_force=2.0,
                                 init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
-                                duration = 5, tolerance = 0.1, p=0.0005, control_type="bang_bang"):
+                                duration = 5, tolerance = 0.1, p=0.0005, 
+                                camera_dict={}, control_type="bang_bang"):
         return await asyncio.to_thread(
             self.force_position_control,
             wrench=wrench,
@@ -203,6 +207,7 @@ class UR5_Interface:
             duration=duration,
             tolerance=tolerance,
             p=p,
+            camera_dict=camera_dict,
             control_type=control_type
         )
 
