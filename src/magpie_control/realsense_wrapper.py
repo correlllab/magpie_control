@@ -266,7 +266,7 @@ class RealSense():
 
         return rawColorImage
 
-    def take_image_blocking(self, save=False, filepath="", buffer=False, depth=False, pcd=False):
+    def take_image_blocking(self, filepath="", buffer=False, depth=False):
         # Takes RGBD Image using Realsense
         # intrinsic and extrinsic parameters are NOT applied only in getPCD()
         # out: Open3D RGBDImage
