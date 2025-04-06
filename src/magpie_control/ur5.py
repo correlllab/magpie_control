@@ -74,7 +74,8 @@ class UR5_Interface:
         """ Set the camera transform """
         self.camXform = np.array( xform )
 
-    def __init__( self, robotIP = "192.168.0.4", cameraXform = None, freq = 500, record=False, record_path=None, provide_gripper=False ):
+    def __init__( self, robotIP = "192.168.0.4", cameraXform = None, freq = 500, 
+                 record=False, record_path=None, provide_gripper=False, provide_ft_sensor=False ):
         """ Store connection params and useful constants """
         self.name       = "UR5_CB3"
         self.robotIP    = robotIP # IP address of the robot
@@ -94,6 +95,7 @@ class UR5_Interface:
         self.home       = None # initialized in start()
         self.z_offset   = 0.02 # 2cm z offset for magpie gripper, just a tunable value to smooth things over
         self.provide_gripper = provide_gripper # disable gripper by default for separate control
+        self.provide_ft_sensor = provide_ft_sensor
         self.cf_t, self.ft_t = [], []
         if cameraXform is None:
             self.set_tcp_to_camera_xform( _CAMERA_XFORM )
@@ -195,12 +197,13 @@ class UR5_Interface:
         sleep(0.1)
         sched.run()
 
-    def start( self):
+    def start( self ):
         """ Connect to RTDE and the gripper """
         self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
         self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
         self.home = self.getPose()
         if self.provide_gripper: self.start_gripper()
+        if self.provide_ft_sensor: self.start_ft_sensor()
 
     def halt( self ):
         """ I don't actually know if this is safe to do! """
