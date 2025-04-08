@@ -198,7 +198,7 @@ class UR5_Interface:
                                 duration = 5, tolerance = 0.1, p=0.0005, 
                                 camera_dict={}, filepath="", control_type="bang_bang"):
 
-        self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log = [], [], [], {}
+        self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper_log = [], [], [], {}, {}
         pose, T_w  = np.array(self.getPose()), sm.SE3(goal_delta).A
         goal_pose = pose @ T_w
         distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
@@ -244,7 +244,7 @@ class UR5_Interface:
             for camera in camera_dict:
                 await camera.stop_record(write=False)
         
-        motion_log = {"gripper": [self.gripper.cf_t, self.gripper.cf_t_ts], 
+        motion_log = {"gripper": self.gripper.gripper_log, 
                       "robot": self.robot_log}
         for camera, filepath in camera_dict.items():
             motion_log[filepath] = camera.buffer_dict.copy()
