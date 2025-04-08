@@ -59,7 +59,7 @@ class OptoForce:
         self.cmd = OptoForceCmd()
         if poll_rate not in [50, 100]:
             raise ValueError("Poll rate must be 50 or 100")
-        self.poll_rate_cmd = self.cmd.COMMANDS['set_speed_50'] if poll_rate == 50 else self.cmd.COMMANDS['set_speed_100']
+        self.poll_rate_cmd = self.cmd.COMMANDS[f'set_speed_{poll_rate}']
         
     def connect(self):
         """ Connect to the sensor """
