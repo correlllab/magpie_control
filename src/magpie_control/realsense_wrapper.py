@@ -137,7 +137,7 @@ class RealSense():
         self.pipe, self.config, self.device = None, None, None
         self.recording      = False
         self.recording_task = None
-        self.fps            = fps # fps can only be: 5, 15, 30, 60, 90
+        self.fps            = fps # fps can only be: 5, 15, 30, 60, 90, or 6 for the wrist D405
         self.device_name    = device_name        
         if self.device_name is not None:
             try:
@@ -247,7 +247,7 @@ class RealSense():
         while time.time() - start < t:
             frames = self.pipe.wait_for_frames()
 
-    async def take_image(self, save=False, filepath="", buffer=False):
+    async def take_image(self, save=False, filepath="", buffer=False, depth=False):
         # Takes RGBD Image using Realsense
         # intrinsic and extrinsic parameters are NOT applied only in getPCD()
         # out: Open3D RGBDImage
@@ -258,13 +258,38 @@ class RealSense():
         rawColorImage = np.asanyarray(colorFrame.get_data()).copy()
         timestamp = frames.get_timestamp() / 1000
 
-        if save:
-            # subFix = str(time.time())
+        if not depth: 
             subFix = str(timestamp)
-            if buffer:
-                self.buffer_dict[f"{filepath}{subFix}.jpeg"] = rawColorImage
+            if buffer: self.buffer_dict[f"{filepath}{subFix}.jpeg"] = rawColorImage
+            return rawColorImage
 
-        return rawColorImage
+        rgbd = None
+        # Sets class value for intrinsic pinhole parameters
+        self.pinholeInstrinsics = self.getPinholeInstrinsics(colorFrame)
+        # asign extrinsics here if the camera pose is known
+        # alignOperator maps depth frames to color frames
+        # alignment halves fps: https://github.com/IntelRealSense/realsense-ros/issues/1632
+        alignOperator = rs.align(rs.stream.color)
+        alignOperator.process(frames)
+        alignedDepthFrame, alignedColorFrame = frames.get_depth_frame(), frames.get_color_frame()
+
+        # unmodified rgb and z images as numpy arrays of 3 and 1 channels
+        rawColorImage = np.array(alignedColorFrame.get_data()).copy()
+        rawDepthImage = np.asarray(alignedDepthFrame.get_data()).copy()
+
+        rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
+            o3d.geometry.Image(rawColorImage),
+            o3d.geometry.Image(rawDepthImage.astype('uint16')),
+            depth_scale=1.0 / self.depthScale,
+            depth_trunc=self.zMax,
+            convert_rgb_to_intensity=False)
+        
+        if buffer:
+            subFix = str(timestamp)            
+            self.buffer_dict[f"{filepath}{subFix}.jpeg"] = np.array(rgbd.color).copy()
+            self.buffer_dict[f"{filepath}{subFix}.npy"]  = np.array(rgbd.depth).copy()                    
+
+        return rgbd
 
     def take_image_blocking(self, filepath="", buffer=False, depth=False):
         # Takes RGBD Image using Realsense
@@ -292,7 +317,7 @@ class RealSense():
 
         # unmodified rgb and z images as numpy arrays of 3 and 1 channels
         rawColorImage = np.array(alignedColorFrame.get_data()).copy()
-        rawDepthImage = np.asarray(alignedDepthFrame.get_data())
+        rawDepthImage = np.asarray(alignedDepthFrame.get_data()).copy()
 
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
             o3d.geometry.Image(rawColorImage),
@@ -309,22 +334,22 @@ class RealSense():
         return rgbd
 
 
-    async def _record_images(self, filepath=""):
+    async def _record_images(self, filepath="", record_depth=False):
         # records images to a specified filepath
         try:
             while self.recording:
-                await self.take_image(save=True, filepath=filepath, buffer=True)
+                await self.take_image(save=True, filepath=filepath, buffer=True, depth=record_depth)
                 await asyncio.sleep(0.01)
         except asyncio.CancelledError:
             print(f"{self.device_name} Recording Task Cancelled")
 
-    def begin_record(self, filepath=""):
+    def begin_record(self, filepath="", record_depth=False):
         if not self.recording:
             self.recording = True
-            self.recording_task = asyncio.create_task(self._record_images(filepath=filepath))
+            self.recording_task = asyncio.create_task(self._record_images(filepath=filepath, record_depth=record_depth))
             print(f"{self.device_name} Recording Started")
 
-    async def stop_record(self, flush_time=2):
+    async def stop_record(self, flush_time=2, write=True):
         if self.recording:
             self.recording = False
             if self.recording_task is not None:
@@ -334,8 +359,9 @@ class RealSense():
                 except asyncio.CancelledError:
                     pass
                 print(f"{self.device_name} Recording Stopped")
-            self.write_buffer()
-            print(f"{self.device_name} Buffer written")
+            if write:
+                self.write_buffer()
+                print(f"{self.device_name} Buffer written")
             # self.flush_buffer(t=flush_time)
             # print("Buffer flushed")
         else:
