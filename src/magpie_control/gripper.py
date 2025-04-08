@@ -95,6 +95,7 @@ class Gripper:
         self.recorded_contact_force_r = 0.0
         self.cf_t = [] # history of [[cf_l, cf_r], [cf_l, cf_r], ...]
         self.cf_t_ts = [] # history of timestamps for cf_t
+        self.gripper_log = {}
 
     #this is before you attach your motors to the gripper
     def setup(self):
@@ -135,8 +136,11 @@ class Gripper:
         self.reset_packet_overload(force_limit=force_limit)
         self.close_gripper()
         if record:
+            t = time.time()
             self.cf_t_ts.append(time.time())
-            self.cf_t.append(self.interval_force_measure(self.latency, 3, finger='both', distinct=True))
+            cf = self.interval_force_measure(self.latency, 3, finger='both', distinct=True)
+            self.cf_t.append(cf)
+            self.gripper_log[t] = {'cf_l': cf[0], 'cf_r': cf[1], 'cf': np.mean(cf), 'aperture': self.get_aperture()}
 
     async def reset_and_close_gripper_async(self, force_limit=2, duration=-1, record=False):
         if duration < 0:
