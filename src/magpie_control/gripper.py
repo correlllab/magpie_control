@@ -93,6 +93,8 @@ class Gripper:
         self.recorded_contact_force = 0.0
         self.recorded_contact_force_l = 0.0
         self.recorded_contact_force_r = 0.0
+        self.cf_t = [] # history of [[cf_l, cf_r], [cf_l, cf_r], ...]
+        self.cf_t_ts = [] # history of timestamps for cf_t
 
     #this is before you attach your motors to the gripper
     def setup(self):
@@ -129,15 +131,21 @@ class Gripper:
         self.Finger2.set_goal_position(close2)
         time.sleep(0.1) # 100ms
 
-    def reset_and_close_gripper(self, force_limit=2):
+    def reset_and_close_gripper(self, force_limit=2, record=False):
         self.reset_packet_overload(force_limit=force_limit)
         self.close_gripper()
+        if record:
+            self.cf_t_ts.append(time.time())
+            self.cf_t.append(self.interval_force_measure(self.latency, 3, finger='both', distinct=True))
 
-    async def reset_and_close_gripper_async(self, force_limit=2, duration=1):
-        start = time.time()
-        while time.time() - start < duration:
-            await asyncio.to_thread(self.reset_and_close_gripper, force_limit=force_limit)
-            await asyncio.sleep(0.25)
+    async def reset_and_close_gripper_async(self, force_limit=2, duration=-1, record=False):
+        if duration < 0:
+            await asyncio.to_thread(self.reset_and_close_gripper, force_limit=force_limit, record=record)
+        else:
+            start = time.time()
+            while time.time() - start < duration:
+                await asyncio.to_thread(self.reset_and_close_gripper, force_limit=force_limit, record=record)
+                # asyncio.sleep(0.25)
 
     # measure contact force at specified intervals
     def interval_force_measure(self, delay, iterations, finger='both', distinct=False):
