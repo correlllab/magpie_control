@@ -157,7 +157,7 @@ class UR5_Interface:
     def force_position_control(self, wrench=np.zeros(6), init_cmd=np.zeros(6), 
                                goal_delta=[0,0,0], max_force=10, duration = 5, 
                                tolerance = 0.1, p=0.0005, control_type="bang_bang"):
-
+        self.ft_t, self.robot_log = [], {}
         pose, T_w  = np.array(self.getPose()), sm.SE3(goal_delta).A
         goal_pose = pose @ T_w
         distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
