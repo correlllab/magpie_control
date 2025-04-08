@@ -157,7 +157,7 @@ class UR5_Interface:
                             goal_delta=[0,0,0], max_force=10, duration = 5, tolerance = 0.1, p=0.0005,
                             camera_dict={}, filepath="", control_type="bang_bang"):
 
-        self.cf_t, self.ft_t = [], []
+        self.cf_t, self.ft_t, self.gripper.gripper_log = [], [], {}
         pose = np.array(self.getPose())
         T_w = sm.SE3(goal_delta).A
         goal_pose = pose @ T_w
@@ -198,7 +198,7 @@ class UR5_Interface:
                                 duration = 5, tolerance = 0.1, p=0.0005, 
                                 camera_dict={}, filepath="", control_type="bang_bang"):
 
-        self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log = [], [], [], {}
+        self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper.gripper_log = [], [], [], {}, {}
         pose, T_w  = np.array(self.getPose()), sm.SE3(goal_delta).A
         goal_pose = pose @ T_w
         distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
