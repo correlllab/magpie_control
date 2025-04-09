@@ -77,6 +77,41 @@ def rr_log_data(robot_data_config={}):
 
 ########## GEOMETRY FUNCTIONS #####################################################################
 
+def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True):
+    """
+    Transform a 6D vector (wrench or twist) between two frames using a given pose.
+
+    Parameters:
+        vec: 6D vector (linear/angular components), in source frame. either a velocity twist or a F/T wrench
+        pose: 4x4 transformation matrix from pose frame to origin frame (T_base_pose).
+        pose_to_origin: True if transforming from pose → origin; False for origin → pose.
+        is_wrench: True if transforming a wrench; False for twist.
+
+    Returns:
+        Transformed 6D vector in target frame.
+    """
+    R = pose[:3, :3]  # rotation from pose to base
+    p = pose[:3, 3]   # origin of pose frame expressed in base frame
+    lin = np.array(vec[:3])
+    ang = np.array(vec[3:])
+
+    if pose_to_origin:
+        if is_wrench:
+            lin_new = R @ lin
+            ang_new = R @ ang + np.cross(p, lin_new)
+        else:  # twist
+            ang_new = R @ ang
+            lin_new = R @ lin + np.cross(p, ang_new)
+    else:
+        Rt = R.T
+        if is_wrench:
+            lin_new = Rt @ lin
+            ang_new = Rt @ (ang - np.cross(p, lin))
+        else:  # twist
+            ang_new = Rt @ ang
+            lin_new = Rt @ (lin - np.cross(p, ang))
+
+    return np.hstack((lin_new, ang_new))
 
 def vec_mag(v1):
     """ Return the magnitude of the vector """
