@@ -140,7 +140,7 @@ class Gripper:
             self.cf_t_ts.append(time.time())
             cf = self.interval_force_measure(self.latency, 3, finger='both', distinct=True)
             self.cf_t.append(cf)
-            self.gripper_log[t] = {'cf_l': cf[0], 'cf_r': cf[1], 'cf': np.mean(cf), 'aperture': self.get_aperture()}
+            self.gripper_log[t] = {'cf_l': cf[0], 'cf_r': cf[1], 'cf': np.mean(cf)*2, 'aperture': self.get_aperture()}
 
     async def reset_and_close_gripper_async(self, force_limit=2, duration=-1, record=False):
         if duration < 0:
