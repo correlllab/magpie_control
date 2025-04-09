@@ -185,7 +185,7 @@ class UR5_Interface:
             }
 
             speedL_cmd_w = self.get_control_update(speedL_cmd_w, ft_goal, ft_curr, p=p, control_type=control_type)
-            self.speedL_TCP(np.array(speedL_cmd_w))
+            self.speedL_TCP(np.array(speedL_cmd_w), tooltip=True)
             distance = np.linalg.norm(goal_pose[:3, 3] - np.array(self.getPose())[:3, 3])
             ft_prev = ft_curr
 
@@ -399,14 +399,19 @@ class UR5_Interface:
             goal = T @ wrist
         self.moveL(goal)
 
-    def speedL_TCP(self, wrist_speedL_cmd, linSpeed = 0.25, linAccel = 0.5):
+    def speedL_TCP(self, wrist_speedL_cmd, linSpeed = 0.25, linAccel = 0.5, tooltip=False):
         '''
         moves the tool at some velocity in the wrist frame
         @param wrist_speedL_cmd: velocity command in wrist frame, [vx, vy, vz, wx, wy, wz]
+        @param tooltip: if true, the speed command is in the tool frame, not wrist (only affects angular velocities)
         '''
         v_w = wrist_speedL_cmd[:3]
         w_w = wrist_speedL_cmd[3:]
-        R = np.array(self.getPose())[:3, :3]
+        if tooltip:
+            v_induced = np.cross(w_w, self.magpie_tooltip)
+            v_w -= v_induced
+        T = np.array(self.getPose())
+        R = T[:3, :3]
         v_b = R @ v_w
         w_b = R @ w_w
         speedL_cmd = np.hstack((v_b, w_b))
