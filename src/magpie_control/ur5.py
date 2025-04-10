@@ -196,12 +196,12 @@ class UR5_Interface:
                                 duration = 5, tolerance = 0.1, p=0.0005, 
                                 camera_dict={}, filepath="", control_type="bang_bang"):
 
-        self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper_log = [], [], [], {}, {}
+        self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper.gripper_log = [], [], [], {}, {}
         if self.gripper is None:
             self.start_gripper()
 
         gripper_task = asyncio.create_task(self.gripper.reset_and_close_gripper_async(force_limit=grasp_force, 
-                                                                                      duration=3, record=True))
+                                                                                      duration=duration, record=True))
         if len(camera_dict) > 0:
             for camera in camera_dict:
                 camera.begin_record(filepath=camera_dict[camera], record_depth=False)
