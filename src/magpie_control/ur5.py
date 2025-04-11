@@ -111,7 +111,7 @@ class UR5_Interface:
             # self.gripper = Motors( servoPort )
             # self.gripper.torquelimit( self.torqLim )
             self.gripper = Gripper( servoPort )
-            self.gripper.set_torque( self.torqLim, finger='both')
+            # self.gripper.set_torque( self.torqLim, finger='both')
         else:
             raise RuntimeError( "Could NOT connect to gripper Dynamixel board!" )
 
@@ -198,7 +198,7 @@ class UR5_Interface:
 
     async def concurrent_gripper_camera_robot_control(self, wrench=np.zeros(6), grasp_force=2.0,
                                 init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
-                                duration = 5, tolerance = 0.1, p=0.0005, rerun_viz=False,
+                                duration = 5, tolerance = 0.1, p=0.0005, rerun_viz=None,
                                 camera_dict={}, filepath="", control_type="bang_bang"):
 
         self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper.gripper_log = [], [], [], {}, {}
