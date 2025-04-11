@@ -151,6 +151,7 @@ class RealSense():
         self.h = h
         self.buffer_dict = {}
         self.deviceManager  = DeviceManager()
+        self.rerun_viz = None
 
 
     def initConnection(self, device_serial=None, enable_depth=True, enable_color=True):
@@ -264,6 +265,7 @@ class RealSense():
                 "rgb_path": f"{filepath}{subFix}.jpeg",
             }
             self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
             return rawColorImage
 
         rgbd = None
@@ -296,6 +298,7 @@ class RealSense():
                 "depth_path": f"{filepath}{subFix}.npy"
             }
             self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
 
         return rgbd
 
@@ -317,6 +320,7 @@ class RealSense():
                 "rgb_path": f"{filepath}{subFix}.jpeg",
             }
             self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
             return rawColorImage
 
         rgbd = None
@@ -348,6 +352,7 @@ class RealSense():
                 "depth_path": f"{filepath}{subFix}.npy"
             }
             self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
 
         return rgbd
 

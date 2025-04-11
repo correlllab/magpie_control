@@ -96,6 +96,7 @@ class Gripper:
         self.cf_t = [] # history of [[cf_l, cf_r], [cf_l, cf_r], ...]
         self.cf_t_ts = [] # history of timestamps for cf_t
         self.gripper_log = {}
+        self.rerun_viz = None
 
     #this is before you attach your motors to the gripper
     def setup(self):
@@ -140,7 +141,10 @@ class Gripper:
             self.cf_t_ts.append(time.time())
             cf = self.interval_force_measure(self.latency, 3, finger='both', distinct=True)
             self.cf_t.append(cf)
-            self.gripper_log[t] = {'cf_l': cf[0], 'cf_r': cf[1], 'cf': np.mean(cf)*2, 'aperture': self.get_aperture()}
+            gripper_state = {'cf_l': cf[0], 'cf_r': cf[1], 'cf': np.mean(cf)*2, 'aperture': self.get_aperture(), 'af': self.applied_force}
+            self.gripper_log[t] = gripper_state
+            if self.rerun_viz is not None: self.rerun_viz.log_gripper_data(gripper_state, t, name="magpie")
+
 
     async def reset_and_close_gripper_async(self, force_limit=2, duration=-1, record=False):
         if duration < 0:

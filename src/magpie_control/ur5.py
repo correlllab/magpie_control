@@ -23,7 +23,7 @@ import rtde_receive
 import serial.tools.list_ports
 # from magpie.motor_code import Motors
 from magpie_control.gripper import Gripper
-
+from magpie_control.utils import transform_6d
 # Poses is from rmlib and used for converting between 4 x 4 homogenous pose and 6 element vector representation (x,y,z,rx,ry,rz)
 from magpie_control import poses
 
@@ -93,6 +93,7 @@ class UR5_Interface:
         self.camXform   = np.eye(4)
         self.magpie_tooltip = [0.012, 0.006, 0.231] # wrist-relative xyz tooltip offset for magpie gripper
         self.debug      = False
+        self.rerun_viz  = None
         self.home       = None # initialized in start()
         self.z_offset   = 0.02 # 2cm z offset for magpie gripper, just a tunable value to smooth things over
         self.provide_gripper = provide_gripper # disable gripper by default for separate control
@@ -176,13 +177,17 @@ class UR5_Interface:
             speed = self.recv.getActualTCPSpeed()
             q     = self.recv.getActualQ()
             qd    = self.recv.getActualQd()
-            self.robot_log[timestamp] = {
+            action = {
                 "actual_q": q,
                 "actual_qd": qd,
                 "actual_TCP_pose": pose,
                 "actual_TCP_speed": speed,
+                "actual_TCP_speed_wrist_frame": transform_6d(speed, np.array(self.getPose()), pose_to_origin=False, is_wrench=False),
+                "target_TCP_speed": speedL_cmd_w,
                 "wrench": ft_curr
             }
+            self.robot_log[timestamp] = action
+            if self.rerun_viz is not None: self.rerun_viz.log_robot_data(action, timestamp, name="ur5")
 
             speedL_cmd_w = self.get_control_update(speedL_cmd_w, ft_goal, ft_curr, p=p, control_type=control_type)
             self.speedL_TCP(np.array(speedL_cmd_w), tooltip=True)
@@ -193,10 +198,11 @@ class UR5_Interface:
 
     async def concurrent_gripper_camera_robot_control(self, wrench=np.zeros(6), grasp_force=2.0,
                                 init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
-                                duration = 5, tolerance = 0.1, p=0.0005, 
+                                duration = 5, tolerance = 0.1, p=0.0005, rerun_viz=False,
                                 camera_dict={}, filepath="", control_type="bang_bang"):
 
         self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper.gripper_log = [], [], [], {}, {}
+        self.gripper.rerun_viz, self.rerun_viz = rerun_viz, rerun_viz
         if self.gripper is None:
             self.start_gripper()
 
@@ -204,6 +210,7 @@ class UR5_Interface:
                                                                                       duration=duration, record=True))
         if len(camera_dict) > 0:
             for camera in camera_dict:
+                camera.rerun_viz = rerun_viz
                 camera.begin_record(filepath=camera_dict[camera], record_depth=False)
         
         loop = asyncio.get_event_loop()
