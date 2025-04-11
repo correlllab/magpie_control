@@ -23,58 +23,6 @@ import magpie_control.realsense_wrapper as rsw
 ##### Aliases #####
 np_choice = np.random.choice
 
-
-########## VIZ AND LOGGING FUNCTIONS #####################################################################
-def init_rr(name="UR5", robot_config={}):
-    """ Initialize the rerun viewer """
-    rr.init(name=name, spawn=True)
-    rr.set_time_sequence("time")
-    rr.set_time_sequence("time", time=now())
-    if robot_config["gripper_forces"]:
-        rr.log("finger/left",
-            rr.SeriesPoint(
-                color=[255, 0, 0],
-                name="Left Finger Contact Force",
-                marker="circle",
-                marker_size=4,
-            ),
-            static=True
-            )
-
-        rr.log("finger/right",
-            rr.SeriesPoint(
-                color=[0, 255, 0],
-                name="Right Finger Contact Force",
-                marker="circle",
-                marker_size=2,
-            ),
-            static=True
-            )
-
-def rr_log_vectors(name, vector, origins, color=[0, 0, 255], label="wrist forces"):
-    rr.log(f"wrist/{name}",
-    rr.Arrows3D(
-        vectors=vector,
-        origins=origins,
-        labels=[label],
-        colors=color,
-        radii=0.03,
-    ),
-    static=True,
-    )
-
-def rr_log_data(robot_data_config={}):
-    if robot_data_config["wrench"]:
-        wrench_data = robot_data_config["wrench"]
-        x, y, z, origins = wrench_data['fx'], wrench_data['fy'], wrench_data['fz'], wrench_data['origins']
-        rr_log_vectors("x", x, origins, color=[255, 0, 0], label="fx")
-        rr_log_vectors("y", y, origins, color=[0, 255, 0], label="fy")
-        rr_log_vectors("z", z, origins, color=[0, 0, 255], label="fz")
-    if robot_data_config["gripper_forces"]:
-        cf = robot_data_config["gripper_forces"]
-        rr.log("finger/left", rr.Scalar(cf[0]))
-        rr.log("finger/right", rr.Scalar(cf[1]))
-
 ########## GEOMETRY FUNCTIONS #####################################################################
 
 def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True):
