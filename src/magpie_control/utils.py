@@ -23,60 +23,43 @@ import magpie_control.realsense_wrapper as rsw
 ##### Aliases #####
 np_choice = np.random.choice
 
-
-########## VIZ AND LOGGING FUNCTIONS #####################################################################
-def init_rr(name="UR5", robot_config={}):
-    """ Initialize the rerun viewer """
-    rr.init(name=name, spawn=True)
-    rr.set_time_sequence("time")
-    rr.set_time_sequence("time", time=now())
-    if robot_config["gripper_forces"]:
-        rr.log("finger/left",
-            rr.SeriesPoint(
-                color=[255, 0, 0],
-                name="Left Finger Contact Force",
-                marker="circle",
-                marker_size=4,
-            ),
-            static=True
-            )
-
-        rr.log("finger/right",
-            rr.SeriesPoint(
-                color=[0, 255, 0],
-                name="Right Finger Contact Force",
-                marker="circle",
-                marker_size=2,
-            ),
-            static=True
-            )
-
-def rr_log_vectors(name, vector, origins, color=[0, 0, 255], label="wrist forces"):
-    rr.log(f"wrist/{name}",
-    rr.Arrows3D(
-        vectors=vector,
-        origins=origins,
-        labels=[label],
-        colors=color,
-        radii=0.03,
-    ),
-    static=True,
-    )
-
-def rr_log_data(robot_data_config={}):
-    if robot_data_config["wrench"]:
-        wrench_data = robot_data_config["wrench"]
-        x, y, z, origins = wrench_data['fx'], wrench_data['fy'], wrench_data['fz'], wrench_data['origins']
-        rr_log_vectors("x", x, origins, color=[255, 0, 0], label="fx")
-        rr_log_vectors("y", y, origins, color=[0, 255, 0], label="fy")
-        rr_log_vectors("z", z, origins, color=[0, 0, 255], label="fz")
-    if robot_data_config["gripper_forces"]:
-        cf = robot_data_config["gripper_forces"]
-        rr.log("finger/left", rr.Scalar(cf[0]))
-        rr.log("finger/right", rr.Scalar(cf[1]))
-
 ########## GEOMETRY FUNCTIONS #####################################################################
 
+def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True):
+    """
+    Transform a 6D vector (wrench or twist) between two frames using a given pose.
+
+    Parameters:
+        vec: 6D vector (linear/angular components), in source frame. either a velocity twist or a F/T wrench
+        pose: 4x4 transformation matrix from pose frame to origin frame (T_base_pose).
+        pose_to_origin: True if transforming from pose → origin; False for origin → pose.
+        is_wrench: True if transforming a wrench; False for twist.
+
+    Returns:
+        Transformed 6D vector in target frame.
+    """
+    R = pose[:3, :3]  # rotation from pose to base
+    p = pose[:3, 3]   # origin of pose frame expressed in base frame
+    lin = np.array(vec[:3])
+    ang = np.array(vec[3:])
+
+    if pose_to_origin:
+        if is_wrench:
+            lin_new = R @ lin
+            ang_new = R @ ang + np.cross(p, lin_new)
+        else:  # twist
+            ang_new = R @ ang
+            lin_new = R @ lin + np.cross(p, ang_new)
+    else:
+        Rt = R.T
+        if is_wrench:
+            lin_new = Rt @ lin
+            ang_new = Rt @ (ang - np.cross(p, lin))
+        else:  # twist
+            ang_new = Rt @ ang
+            lin_new = Rt @ (lin - np.cross(p, ang))
+
+    return np.hstack((lin_new, ang_new))
 
 def vec_mag(v1):
     """ Return the magnitude of the vector """

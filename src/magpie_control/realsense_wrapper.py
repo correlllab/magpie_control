@@ -151,6 +151,7 @@ class RealSense():
         self.h = h
         self.buffer_dict = {}
         self.deviceManager  = DeviceManager()
+        self.rerun_viz = None
 
 
     def initConnection(self, device_serial=None, enable_depth=True, enable_color=True):
@@ -234,12 +235,11 @@ class RealSense():
 
 
     def write_buffer(self):
-        for path, im in self.buffer_dict.items():
-            if ".npy" in path:
-                np.save(path, im)
-            elif ".jpeg" in path:
-                colorIM = Image.fromarray(im)
-                colorIM.save(path)
+        for ts, image_info in self.buffer_dict.items():
+            colorIM = Image.fromarray(image_info["rgb"])
+            colorIM.save(image_info["rgb_path"])
+            if "depth" in image_info:
+                np.save(image_info["depth_path"], image_info["depth"])
         self.buffer_dict = {}
 
     def flush_buffer(self, t=3):
@@ -260,7 +260,12 @@ class RealSense():
 
         if not depth: 
             subFix = str(timestamp)
-            if buffer: self.buffer_dict[f"{filepath}{subFix}.jpeg"] = rawColorImage
+            image_info = {
+                "rgb": rawColorImage,
+                "rgb_path": f"{filepath}{subFix}.jpeg",
+            }
+            self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
             return rawColorImage
 
         rgbd = None
@@ -285,9 +290,15 @@ class RealSense():
             convert_rgb_to_intensity=False)
         
         if buffer:
-            subFix = str(timestamp)            
-            self.buffer_dict[f"{filepath}{subFix}.jpeg"] = np.array(rgbd.color).copy()
-            self.buffer_dict[f"{filepath}{subFix}.npy"]  = np.array(rgbd.depth).copy()                    
+            subFix = str(timestamp)
+            image_info = {
+                "rgb": np.array(rgbd.color).copy(),
+                "depth":np.array(rgbd.depth).copy(),
+                "rgb_path": f"{filepath}{subFix}.jpeg",
+                "depth_path": f"{filepath}{subFix}.npy"
+            }
+            self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
 
         return rgbd
 
@@ -303,7 +314,13 @@ class RealSense():
         timestamp = frames.get_timestamp() / 1000
 
         if not depth: 
-            if buffer: self.buffer_dict[f"{filepath}{subFix}.jpeg"] = rawColorImage
+            subFix = str(timestamp)
+            image_info = {
+                "rgb": rawColorImage,
+                "rgb_path": f"{filepath}{subFix}.jpeg",
+            }
+            self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
             return rawColorImage
 
         rgbd = None
@@ -328,8 +345,14 @@ class RealSense():
         
         if buffer:
             subFix = str(timestamp)
-            self.buffer_dict[f"{filepath}{subFix}.jpeg"] = np.array(rgbd.color).copy()
-            self.buffer_dict[f"{filepath}{subFix}.npy"]  = np.array(rgbd.depth).copy()                    
+            image_info = {
+                "rgb": np.array(rgbd.color).copy(),
+                "depth":np.array(rgbd.depth).copy(),
+                "rgb_path": f"{filepath}{subFix}.jpeg",
+                "depth_path": f"{filepath}{subFix}.npy"
+            }
+            self.buffer_dict[timestamp] = image_info
+            if self.rerun_viz is not None: self.rerun_viz.log_camera_data(image_info, timestamp, self.device_name)
 
         return rgbd
 
