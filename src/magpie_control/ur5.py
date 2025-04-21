@@ -216,6 +216,7 @@ class UR5_Interface:
 
             timestamp = time.time()
             pose  = self.recv.getActualTCPPose()
+            pose_mat = self.getPose().A
             speed = self.recv.getActualTCPSpeed()
             q     = self.recv.getActualQ()
             qd    = self.recv.getActualQd()
@@ -224,10 +225,12 @@ class UR5_Interface:
                 "actual_qd": qd,
                 "actual_TCP_pose": pose,
                 "actual_TCP_speed": speed,
-                "actual_TCP_speed_wrist_frame": transform_6d(speed, np.array(self.getPose()), pose_to_origin=False, is_wrench=False),
+                "actual_TCP_speed_wrist_frame": transform_6d(speed, pose_mat, pose_to_origin=False, is_wrench=False),
                 "target_TCP_speed": speedL_cmd_w,
-                "wrench": ft_curr
+                "wrench": ft_curr,
+                "wrench_base": transform_6d(ft_curr, pose_mat, pose_to_origin=True, is_wrench=True),
             }
+            print("in action")
             self.robot_log[timestamp] = action
             if self.rerun_viz is not None: self.rerun_viz.log_robot_data(action, timestamp, name="ur5")
 
