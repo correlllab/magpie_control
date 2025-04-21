@@ -230,7 +230,6 @@ class UR5_Interface:
                 "wrench": ft_curr,
                 "wrench_base": transform_6d(ft_curr, pose_mat, pose_to_origin=True, is_wrench=True),
             }
-            print("in action")
             self.robot_log[timestamp] = action
             if self.rerun_viz is not None: self.rerun_viz.log_robot_data(action, timestamp, name="ur5")
 
