@@ -155,50 +155,9 @@ class UR5_Interface:
             return cmd
         return np.zeros(6)
 
-    def force_position_control(self, wrench=np.zeros(6), grasp_force=2.0, init_cmd=np.zeros(6),
-                            goal_delta=[0,0,0], max_force=10, duration = 5, tolerance = 0.1, p=0.0005,
-                            camera_dict={}, filepath="", control_type="bang_bang"):
-
-        self.cf_t, self.ft_t, self.gripper.gripper_log = [], [], {}
-        pose = np.array(self.getPose())
-        T_w = sm.SE3(goal_delta).A
-        goal_pose = pose @ T_w
-        distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
-        ft_goal = np.array(wrench).clip(min=-1*max_force, max=max_force)
-        speedL_cmd_w = init_cmd # initial cmd
-        start = time.time()
-        ft_prev = self.get_ft_data()
-        if self.gripper is None:
-            self.start_gripper()
-
-        while time.time() - start < duration and distance > tolerance:
-            ft_curr = self.get_ft_data()
-            if ft_curr == []: ft_curr = ft_prev # handle null reading from optoforce
-            self.gripper.reset_and_close_gripper(force_limit=grasp_force)
-            self.cf_t.append(self.gripper.interval_force_measure(self.gripper.latency/3, 3, finger='both', distinct=True))
-            self.ft_t.append(ft_curr)
-            if len(camera_dict) > 0:
-                for camera in camera_dict:
-                    camera.take_image_blocking(filepath=camera_dict[camera], buffer=True, depth=True)
-            speedL_cmd_w = self.get_control_update(speedL_cmd_w, ft_goal, ft_curr, p=p, control_type=control_type)
-            self.speedL_TCP(np.array(speedL_cmd_w))
-            pose = np.array(self.getPose())
-            distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
-            ft_prev = ft_curr
-            if self.debug:
-                print(f"{ft_curr=}")
-                print(f"{pose[:3, 3]=}\n{goal_pose[:3, 3]=}")
-                print(f"Distance: {distance:.3f}")
-                print(f"TCP velocity: {np.array(self.recv.getActualTCPSpeed())}")
-        
-        self.ctrl.speedL([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.5, 0.25)
-
-        return self.cf_t, self.ft_t
-
-    async def force_position_control_async(self, wrench=np.zeros(6), grasp_force=2.0,
-                                init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
-                                duration = 5, tolerance = 0.1, p=0.0005, 
-                                camera_dict={}, filepath="", control_type="bang_bang"):
+    def force_position_control(self, wrench=np.zeros(6), init_cmd=np.zeros(6), 
+                               goal_delta=[0,0,0], max_force=10, duration = 5, 
+                               tolerance = 0.1, p=0.0005, control_type="bang_bang"):
 
         self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper.gripper_log = [], [], [], {}, {}
         pose, T_w  = np.array(self.getPose()), sm.SE3(goal_delta).A

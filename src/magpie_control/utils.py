@@ -25,7 +25,7 @@ np_choice = np.random.choice
 
 ########## GEOMETRY FUNCTIONS #####################################################################
 
-def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True):
+def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: np.ndarray = None):
     """
     Transform a 6D vector (wrench or twist) between two frames using a given pose.
 
@@ -42,6 +42,15 @@ def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True):
     p = pose[:3, 3]   # origin of pose frame expressed in base frame
     lin = np.array(vec[:3])
     ang = np.array(vec[3:])
+
+    # Optional pre-rotation at the origin frame
+    if pre_rotation is not None:
+        if is_wrench:
+            lin = pre_rotation @ lin
+            ang = pre_rotation @ ang
+        else:
+            lin = pre_rotation @ lin
+            ang = pre_rotation @ ang
 
     if pose_to_origin:
         if is_wrench:
