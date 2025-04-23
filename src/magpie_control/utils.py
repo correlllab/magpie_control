@@ -34,6 +34,7 @@ def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: n
         pose: 4x4 transformation matrix from pose frame to origin frame (T_base_pose).
         pose_to_origin: True if transforming from pose → origin; False for origin → pose.
         is_wrench: True if transforming a wrench; False for twist.
+        pre_rotation: Optional rotation matrix to apply at the base frame
 
     Returns:
         Transformed 6D vector in target frame.
@@ -44,14 +45,6 @@ def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: n
     ang = np.array(vec[3:])
 
     # Optional pre-rotation at the origin frame
-    if pre_rotation is not None:
-        if is_wrench:
-            lin = pre_rotation @ lin
-            ang = pre_rotation @ ang
-        else:
-            lin = pre_rotation @ lin
-            ang = pre_rotation @ ang
-
     if pose_to_origin:
         if is_wrench:
             lin_new = R @ lin
@@ -59,7 +52,13 @@ def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: n
         else:  # twist
             ang_new = R @ ang
             lin_new = R @ lin + np.cross(p, ang_new)
+        if pre_rotation is not None:
+            lin = pre_rotation.T @ lin
+            ang = pre_rotation.T @ ang
     else:
+        if pre_rotation is not None:
+            lin = pre_rotation @ lin
+            ang = pre_rotation @ ang
         Rt = R.T
         if is_wrench:
             lin_new = Rt @ lin
