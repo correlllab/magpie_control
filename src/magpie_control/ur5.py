@@ -169,6 +169,7 @@ class UR5_Interface:
 
         # force control loop
         while time.time() - start < duration and distance > tolerance:
+            self.speedL_TCP(np.array(speedL_cmd_w), tooltip=True)
             ft_curr = self.get_ft_data()
             if ft_curr == []: ft_curr = ft_prev # handle null reading from optoforce
             self.ft_t.append(ft_curr)
@@ -191,9 +192,7 @@ class UR5_Interface:
             }
             self.robot_log[timestamp] = action
             if self.rerun_viz is not None: self.rerun_viz.log_robot_data(action, timestamp, name="ur5")
-
             speedL_cmd_w = self.get_control_update(speedL_cmd_w, ft_goal, ft_curr, p=p, control_type=control_type)
-            self.speedL_TCP(np.array(speedL_cmd_w), tooltip=True)
             distance = np.linalg.norm(goal_pose[:3, 3] - np.array(self.getPose())[:3, 3])
             ft_prev = ft_curr
 
