@@ -53,8 +53,8 @@ def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: n
             ang_new = R @ ang
             lin_new = R @ lin + np.cross(p, ang_new)
         if pre_rotation is not None:
-            lin = pre_rotation.T @ lin
-            ang = pre_rotation.T @ ang
+            lin_new = pre_rotation.T @ lin_new
+            ang_new = pre_rotation.T @ ang_new
     else:
         if pre_rotation is not None:
             lin = pre_rotation @ lin
