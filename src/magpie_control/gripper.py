@@ -54,12 +54,15 @@ class Gripper:
         #input motor theta max and measurements by using dynamixel
         self.Finger1theta_max = 176
         self.Finger1theta_min = 85
-        self.Finger2theta_max = 218
-        self.Finger2theta_min = 128
+        # self.Finger2theta_max = 218
+        # self.Finger2theta_min = 128
+        self.Finger2theta_max = 304
+        self.Finger2theta_min = 218
         # set bar parallel to camera(Input)
         self.Finger1theta_90 = 150
         # set bar parallel to camera(Input)
-        self.Finger2theta_90 = 155
+        # self.Finger2theta_90 = 155
+        self.Finger2theta_90 = 245
 
         self.default_parameters = {
                 'torque': 200,
