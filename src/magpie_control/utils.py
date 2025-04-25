@@ -25,7 +25,7 @@ np_choice = np.random.choice
 
 ########## GEOMETRY FUNCTIONS #####################################################################
 
-def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: np.ndarray = None):
+def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: np.ndarray = None, preserve_norm_only = True):
     """
     Transform a 6D vector (wrench or twist) between two frames using a given pose.
 
@@ -44,28 +44,34 @@ def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: n
     lin = np.array(vec[:3])
     ang = np.array(vec[3:])
 
-    # Optional pre-rotation at the origin frame
     if pose_to_origin:
-        if is_wrench:
-            lin_new = R @ lin
-            ang_new = R @ ang + np.cross(p, lin_new)
-        else:  # twist
-            ang_new = R @ ang
-            lin_new = R @ lin + np.cross(p, ang_new)
+        # Pose → origin
+        lin_new = R @ lin
+        ang_new = R @ ang
+        if not preserve_norm_only:
+            if is_wrench:
+                ang_new += np.cross(p, lin_new)
+            else:
+                lin_new += np.cross(p, ang_new)
         if pre_rotation is not None:
             lin_new = pre_rotation.T @ lin_new
             ang_new = pre_rotation.T @ ang_new
     else:
+        # Origin → pose
         if pre_rotation is not None:
             lin = pre_rotation @ lin
             ang = pre_rotation @ ang
         Rt = R.T
-        if is_wrench:
+        if preserve_norm_only:
             lin_new = Rt @ lin
-            ang_new = Rt @ (ang - np.cross(p, lin))
-        else:  # twist
             ang_new = Rt @ ang
-            lin_new = Rt @ (lin - np.cross(p, ang))
+        else:
+            if is_wrench:
+                lin_new = Rt @ lin
+                ang_new = Rt @ (ang - np.cross(p, lin))
+            else:
+                ang_new = Rt @ ang
+                lin_new = Rt @ (lin - np.cross(p, ang))
 
     return np.hstack((lin_new, ang_new))
 
