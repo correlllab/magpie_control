@@ -151,7 +151,9 @@ class UR5_Interface:
         elif control_type == "proportional":
             update = p * (ft_goal - ft_meas)
             update[ft_goal == 0] = 0
-            cmd = np.clip(cmd - update, -0.09, 0.09) # safety feature for now
+            cmd_l = np.clip(cmd[:3] - update[:3], -0.09, 0.09)
+            cmd_a = np.clip(cmd[3:] - update[3:], -0.04, 0.04) # lower limit for angular velocity
+            cmd = np.hstack((cmd_l, cmd_a))
             return cmd
         return np.zeros(6)
 
