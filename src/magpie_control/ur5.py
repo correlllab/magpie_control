@@ -151,7 +151,7 @@ class UR5_Interface:
         elif control_type == "proportional":
             update = p * (ft_goal - ft_meas)
             update[ft_goal == 0] = 0
-            cmd = np.clip(cmd - update, -0.05, 0.05) # safety feature for now
+            cmd = np.clip(cmd - update, -0.09, 0.09) # safety feature for now
             return cmd
         return np.zeros(6)
 
