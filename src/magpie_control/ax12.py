@@ -70,8 +70,9 @@ class Ax12:
     DEBUG            = True
     CONNECTED        = False
 
-    def __init__(self, motor_id):
+    def __init__(self, motor_id, debug=False):
         """Initialize motor with id"""
+        self.DEBUG = debug
         self.id = motor_id
 
     def __repr__(self):
@@ -348,11 +349,11 @@ class Ax12:
     @staticmethod
     def check_error( comm_result, dxl_err ):
         if comm_result != COMM_SUCCESS:
-            # print("%s" % Ax12.packetHandler.getTxRxResult(comm_result))
-            raise RuntimeError( "Ax12 Comm ERROR: %s" % Ax12.packetHandler.getTxRxResult(comm_result) )
+            print("%s" % Ax12.packetHandler.getTxRxResult(comm_result))
+            # raise RuntimeError( "Ax12 Comm ERROR: %s" % Ax12.packetHandler.getTxRxResult(comm_result) )
         elif dxl_err != 0:
-            raise RuntimeError( "Ax12 Servo ERROR: %s" % Ax12.packetHandler.getRxPacketError( dxl_err ) )
-            # print("%s" % Ax12.packetHandler.getRxPacketError(dxl_err))
+            # raise RuntimeError( "Ax12 Servo ERROR: %s" % Ax12.packetHandler.getRxPacketError( dxl_err ) )
+            print("%s" % Ax12.packetHandler.getRxPacketError(dxl_err))
 
     @staticmethod
     def raw2deg(delta_raw):

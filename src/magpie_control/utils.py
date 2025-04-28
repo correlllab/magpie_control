@@ -17,12 +17,63 @@ if platform.system() == 'Linux':
     from psutil import sensors_temperatures
 # from tcp_latency import measure_latency
 
+import rerun as rr
+import magpie_control.realsense_wrapper as rsw
+
 ##### Aliases #####
 np_choice = np.random.choice
 
-
 ########## GEOMETRY FUNCTIONS #####################################################################
 
+def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: np.ndarray = None, preserve_norm_only = True):
+    """
+    Transform a 6D vector (wrench or twist) between two frames using a given pose.
+
+    Parameters:
+        vec: 6D vector (linear/angular components), in source frame. either a velocity twist or a F/T wrench
+        pose: 4x4 transformation matrix from pose frame to origin frame (T_base_pose).
+        pose_to_origin: True if transforming from pose → origin; False for origin → pose.
+        is_wrench: True if transforming a wrench; False for twist.
+        pre_rotation: Optional rotation matrix to apply at the base frame
+
+    Returns:
+        Transformed 6D vector in target frame.
+    """
+    R = pose[:3, :3]  # rotation from pose to base
+    p = pose[:3, 3]   # origin of pose frame expressed in base frame
+    lin = np.array(vec[:3])
+    ang = np.array(vec[3:])
+
+    if pose_to_origin:
+        # Pose → origin
+        lin_new = R @ lin
+        ang_new = R @ ang
+        if not preserve_norm_only:
+            if is_wrench:
+                ang_new += np.cross(p, lin_new)
+            else:
+                lin_new += np.cross(p, ang_new)
+        if pre_rotation is not None:
+            lin_new = pre_rotation.T @ lin_new
+            ang_new = pre_rotation.T @ ang_new
+    else:
+        # Origin → pose
+        if pre_rotation is not None:
+            lin = pre_rotation @ lin
+            ang = pre_rotation @ ang
+        Rt = R.T
+        if preserve_norm_only:
+            lin_new = Rt @ lin
+            ang_new = Rt @ ang
+        else:
+            if is_wrench:
+                lin_new = Rt @ lin
+                ang_new = Rt @ (ang - np.cross(p, lin))
+            else:
+                ang_new = Rt @ ang
+                lin_new = Rt @ (lin - np.cross(p, ang))
+
+    return np.hstack((lin_new, ang_new))
 
 def vec_mag(v1):
     """ Return the magnitude of the vector """

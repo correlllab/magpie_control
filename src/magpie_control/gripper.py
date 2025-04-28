@@ -1,5 +1,4 @@
-# import sys
-# sys.path.append("../../")
+import asyncio
 from magpie_control.ax12 import Ax12
 import math
 import spatialmath as sm
@@ -9,10 +8,11 @@ import numpy as np
 from multiprocessing import Process
 import threading
 import itertools
+import matplotlib.pyplot as plt
 
 class Gripper:
     
-    def __init__(self, servoport = '/dev/ttyACM0'):
+    def __init__(self, servoport = '/dev/ttyACM0', debug=False):
         # e.g 'COM3' windows or '/dev/ttyUSB0' for Linux, '/dev/ttyACM0'
         # sets baudrate and opens com port
         # Ax12.DEVICENAME = '/dev/cu.usbmodem141401'
@@ -24,8 +24,9 @@ class Gripper:
         #Motor ID1 should be on the right with the camera facing you
         finger_id1 = 1 # left gripper
         finger_id2 = 2
-        self.Finger1 = Ax12(finger_id1)
-        self.Finger2 = Ax12(finger_id2)
+        self.debug = debug
+        self.Finger1 = Ax12(finger_id1, debug=self.debug)
+        self.Finger2 = Ax12(finger_id2, debug=self.debug)
         #speed is in bits from 0-1023 for CCW; 1024 -2047 CW
         # ax-12 manual says no-load moving speed is 59 RPM @ 12V
         self.speed = 100 # about 10% speed, or 11rpm
@@ -53,12 +54,15 @@ class Gripper:
         #input motor theta max and measurements by using dynamixel
         self.Finger1theta_max = 176
         self.Finger1theta_min = 85
-        self.Finger2theta_max = 218
-        self.Finger2theta_min = 128
+        # self.Finger2theta_max = 218
+        # self.Finger2theta_min = 128
+        self.Finger2theta_max = 304
+        self.Finger2theta_min = 218
         # set bar parallel to camera(Input)
         self.Finger1theta_90 = 150
         # set bar parallel to camera(Input)
-        self.Finger2theta_90 = 155
+        # self.Finger2theta_90 = 155
+        self.Finger2theta_90 = 245
 
         self.default_parameters = {
                 'torque': 200,
@@ -85,6 +89,18 @@ class Gripper:
         self.offset_finger_x = -24.32 # difference between crank x-pos and finger base x-pos
         self.offset_finger_y = 1.32 # difference between crank y-pos and finger base y-pos
 
+        # force observations
+        self.applied_force = 0.15
+        self.applied_force_l = 0.075
+        self.applied_force_r = 0.075
+        self.recorded_contact_force = 0.0
+        self.recorded_contact_force_l = 0.0
+        self.recorded_contact_force_r = 0.0
+        self.cf_t = [] # history of [[cf_l, cf_r], [cf_l, cf_r], ...]
+        self.cf_t_ts = [] # history of timestamps for cf_t
+        self.gripper_log = {}
+        self.rerun_viz = None
+
     #this is before you attach your motors to the gripper
     def setup(self):
         self.Finger1.set_goal_position(0)
@@ -97,6 +113,12 @@ class Gripper:
         self.apply_to_fingers('set_ccw_compliance_margin', self.default_parameters['compliance_margin'], finger='both', noarg=False)
         self.apply_to_fingers('set_cw_compliance_slope', self.default_parameters['compliance_slope'], finger='both', noarg=False)
         self.apply_to_fingers('set_ccw_compliance_slope', self.default_parameters['compliance_slope'], finger='both', noarg=False)
+        self.applied_force = 0.15
+        self.applied_force_l = 0.075
+        self.applied_force_r = 0.075
+        self.recorded_contact_force = 0.0
+        self.recorded_contact_force_l = 0.0
+        self.recorded_contact_force_r = 0.0
         self.open_gripper()
         time.sleep(0.0025)
 
@@ -114,12 +136,107 @@ class Gripper:
         self.Finger2.set_goal_position(close2)
         time.sleep(0.1) # 100ms
 
+    def reset_and_close_gripper(self, force_limit=2, record=False):
+        self.reset_packet_overload(force_limit=force_limit)
+        self.close_gripper()
+        if record:
+            t = time.time()
+            self.cf_t_ts.append(time.time())
+            cf = self.interval_force_measure(self.latency, 3, finger='both', distinct=True)
+            self.cf_t.append(cf)
+            gripper_state = {'cf_l': cf[0], 'cf_r': cf[1], 'cf': np.mean(cf)*2, 'aperture': self.get_aperture(), 'af': self.applied_force}
+            self.gripper_log[t] = gripper_state
+            if self.rerun_viz is not None: self.rerun_viz.log_gripper_data(gripper_state, t, name="magpie")
 
-    def reset_packet_overload( self ):
+
+    async def reset_and_close_gripper_async(self, force_limit=2, duration=-1, record=False):
+        if duration < 0:
+            await asyncio.to_thread(self.reset_and_close_gripper, force_limit=force_limit, record=record)
+        else:
+            start = time.time()
+            while time.time() - start < duration:
+                await asyncio.to_thread(self.reset_and_close_gripper, force_limit=force_limit, record=record)
+                # asyncio.sleep(0.25)
+
+    # measure contact force at specified intervals
+    def interval_force_measure(self, delay, iterations, finger='both', distinct=False):
+        '''
+        @param delay: time in seconds to wait between each force measurement
+        @param iterations: number of force measurements to take
+        @param distinct: if finger is 'both', return distinct forces for each finger, else return average
+        '''
+        forces = []
+        for _ in range(iterations):
+            force = self.get_force(finger=finger)
+            if not distinct:
+                force = np.mean(force)
+            forces.append(force)
+            time.sleep(delay)
+        if distinct and finger=='both':
+            # average force for each finger, forces look like [[fl1, fr2], [fl1, fr2], ...]
+            return [np.mean([f[0] for f in forces]), np.mean([f[1] for f in forces])]
+        else:
+            return np.mean(forces)
+
+    def adaptive_grasp(self, kp_F=0.1, kp_x=0.1, f_err_threshold=0.05, init_force=1.5, init_aperture=20, duration=10, plot=False):
+        # @param kp_F: proportional gain on applied force for the adaptive grasp controller
+        # @param kp_x: proportional gain on goal aperture for the adaptive grasp controller
+        # @param f_err_threshold: threshold for error in force measurement
+        # initial aperture 20mm, dx 1mm, df 0.2N
+        self.deligrasp(init_aperture, init_force, 1, 0.2)
+        fa = init_force
+        fc = self.interval_force_measure(self.latency, 5) # 5x 1666 Hz measurements
+        contact_force = [fc]
+        force_error = [0]
+        applied_force = [fa]
+        applied_position = [0]
+        start = time.time()
+        # while True: # this is running on ~80hz
+        while time.time() - start < duration: # this is running on ~80hz
+            x   = self.get_aperture(finger='both')
+            f   = self.interval_force_measure(self.latency, 5) # 0.003s, 333hz measurement
+            # err = np.abs(fc - f) if fc - f > f_err_threshold else 0
+            err = fc - f if abs(fc - f) > f_err_threshold else 0
+            # err = max(err, init_force/2 - f)
+            print(f"relative error: {err}")
+            print(f"init force error: {init_force/2 - f}")
+            err = max(err, init_force/2 - f)
+            if self.debug:
+                print(f'Prev force: {fc}')
+                print(f'Current force: {f}')
+                print(f'Error: {err}')
+            df  = kp_F * err
+            dx  = kp_x * err # normalize error between 0-1 for tighter bound on dx
+            fc  = f
+            fa = fa + df
+            if self.debug:
+                print(f'dx: {dx}, df: {df}')
+                print(f'Applied force: {fa}')
+                print(f'Aperture: {x}')
+                print(f'Goal Aperture: {x - dx}')
+            if plot:
+                contact_force.append(f)
+                force_error.append(err)
+                applied_force.append(fa)
+                applied_position.append(dx)
+            self.set_force(fa, finger='both')
+            self.set_goal_aperture(x - dx, finger='both')
+            time.sleep(0.0122) # 0.0122 + 0.003 = 80hz loop
+        print('Final contact force: ', self.interval_force_measure(self.latency, 5))
+        print('Final aperture: ', self.get_aperture(finger='both'))
+        print('Final applied force: ', fa)
+        if plot:
+            plt.plot(contact_force, label='contact force')
+            plt.plot(force_error, label='force error')
+            plt.plot(applied_force, label='applied force')
+            plt.legend()
+            plt.show()
+
+
+    def reset_packet_overload( self, force_limit=2 ):
         self.Finger1.set_torque_enable(True)
         self.Finger2.set_torque_enable(True)
-        self.Finger1.set_torque_limit(self.default_parameters['torque'])
-        self.Finger2.set_torque_limit(self.default_parameters['torque'])
+        self.set_force(force_limit, 'both')
 
 
     def theta_limit(self, delta_theta):
@@ -173,6 +290,12 @@ class Gripper:
         return self.theta_to_z(self.aperture_to_theta(aperture), debug=debug)
 
     def set_goal_aperture(self, aperture, finger='both', debug=False, record_load=True):
+        '''
+        @param aperture goal gripper width in mm
+        '''
+        # clamp aperture to 0-106mm
+        aperture = min(106, aperture)
+        aperture = max(0, aperture)
         aperture = (aperture / 2.0) if finger=='both' else aperture
         # if both, just calculates delta_ticks for right finger (ugly code).
         delta_ticks = self.theta_to_position(
@@ -245,9 +368,7 @@ class Gripper:
     # setters
     def set_force(self, force, finger='both', debug=False):
         # see comments in check_slip as to why we need to halve the force
-        # tbh, we might not actually need to halve the force here
-        # so long as check_slip halves the force.
-        # TODO: figure this out
+        self.applied_force = force
         force = force / 2.0 if finger=='both' else force
         # convert N to unitless load value
         force = min(force, 16.1)
@@ -308,7 +429,8 @@ class Gripper:
     def get_force(self, finger='both'):
         load = self.get_load(finger=finger)
         if finger=='both':
-            return [self.load_to_N(load[0]), self.load_to_N(load[1])]
+            # [left, right]
+            return [self.load_to_N(load[1]), self.load_to_N(load[0])]
         else:
             return self.load_to_N(load)
 
@@ -359,7 +481,20 @@ class Gripper:
         self.set_goal_aperture(goal_aperture + dx, finger='both', record_load=False)
         # Move to the initial goal aperture to attempt the grasp
         load_data = self.set_goal_aperture(goal_aperture, finger='both', record_load=True)
+        slippage, avg_force, max_force = self.check_slip(load_data, fc, 'both')
         curr_aperture = self.get_aperture(finger='both')
+
+        # first log entry
+        prev_time = time.time()
+        grasp_log.append({'timestamp': prev_time, 
+                    'aperture': curr_aperture,
+                    'gripper_vel': 0, 
+                    'contact_force': np.average(avg_force),
+                    'contact_force_l': avg_force[0], 
+                    'contact_force_r': avg_force[1], 
+                    'applied_force': fc, 
+                    'k': 0})
+
         # initialize force to contact force
         applied_force = fc
         prev_aperture = curr_aperture
@@ -377,23 +512,117 @@ class Gripper:
                 print(f"Previous aperture: {curr_aperture} mm, Goal Aperture: {goal_aperture} mm, Applied Force: {applied_force} N.")
                 print(f"Current aperture: {curr_aperture} mm")
             slippage, avg_force, max_force = self.check_slip(load_data, fc, 'both')
+            curr_time = time.time()
             distance = abs(curr_aperture - prev_aperture)
             k = np.mean(avg_force) * distance * 1000.0
             k_avg.append(k)
-            grasp_log.append({'aperture': curr_aperture, 'contact_force': avg_force, 'applied_force': applied_force, 'k': k})
+            gripper_vel = distance / (curr_time - prev_time)
+            grasp_log.append({'timestamp': curr_time, 
+                              'aperture': curr_aperture,
+                              'gripper_vel': gripper_vel, 
+                              'contact_force': np.average(avg_force),
+                              'contact_force_l': avg_force[0], 
+                              'contact_force_r': avg_force[1], 
+                              'applied_force': applied_force, 
+                              'k': k})
+            prev_time = curr_time
             prev_aperture = curr_aperture
             
-        time.sleep(self.delay * 5)
+        time.sleep(self.delay * 2.5)
         # final adjustment
         if complete:
             curr_aperture = self.get_aperture(finger='both')
             self.set_goal_aperture(curr_aperture - dx, finger='both', record_load=False)
         else:
             self.open_gripper()
-        if debug:
+        if self.debug:
             print(f"Final aperture: {curr_aperture} mm, Controller Goal Aperture: {goal_aperture} mm, Applied Force: {applied_force} N.")
             print(f"Spring Constants: {k_avg} N/m")
+        
+        ### 
+        # important! NEED to print grasp log so that it is captured in subprocess stdout
         print(grasp_log)
+        ###
+
+        return curr_aperture, applied_force, k_avg, grasp_log
+
+    async def deligrasp_async(self, x, fc, dx, df, complete=True, debug=False): 
+        self.debug = debug
+        grasp_log = []
+        
+        # Run blocking functions in separate threads
+        await asyncio.to_thread(self.set_force, fc, 'both')
+        goal_aperture = x
+        await asyncio.to_thread(self.set_goal_aperture, goal_aperture + dx, 'both', False)
+
+        # Move to the initial goal aperture to attempt the grasp
+        load_data = await asyncio.to_thread(self.set_goal_aperture, goal_aperture, 'both', True)
+        slippage, avg_force, max_force = await asyncio.to_thread(self.check_slip, load_data, fc, 'both')
+        curr_aperture = await asyncio.to_thread(self.get_aperture, 'both')
+
+        prev_time = time.time()
+        grasp_log.append({
+            'timestamp': prev_time, 
+            'aperture': curr_aperture,
+            'gripper_vel': 0, 
+            'contact_force': np.average(avg_force),
+            'contact_force_l': avg_force[0], 
+            'contact_force_r': avg_force[1], 
+            'applied_force': fc, 
+            'k': 0
+        })
+        
+        applied_force = fc
+        prev_aperture = curr_aperture
+        k_avg = []
+
+        # Adjust grasp if slipping
+        while slippage:
+            goal_aperture -= dx
+            if np.mean(avg_force) > 0.10:
+                applied_force += df
+            await asyncio.to_thread(self.set_force, applied_force, 'both')
+            load_data = await asyncio.to_thread(self.set_goal_aperture, goal_aperture, 'both', True)
+            curr_aperture = await asyncio.to_thread(self.get_aperture, 'both')
+
+            if self.debug:
+                print(f"Previous aperture: {curr_aperture} mm, Goal Aperture: {goal_aperture} mm, Applied Force: {applied_force} N.")
+                print(f"Current aperture: {curr_aperture} mm")
+
+            slippage, avg_force, max_force = await asyncio.to_thread(self.check_slip, load_data, fc, 'both')
+            curr_time = time.time()
+            distance = abs(curr_aperture - prev_aperture)
+            k = np.mean(avg_force) * distance * 1000.0
+            k_avg.append(k)
+            gripper_vel = distance / (curr_time - prev_time)
+            grasp_log.append({
+                'timestamp': curr_time, 
+                'aperture': curr_aperture,
+                'gripper_vel': gripper_vel, 
+                'contact_force': np.average(avg_force),
+                'contact_force_l': avg_force[0], 
+                'contact_force_r': avg_force[1], 
+                'applied_force': applied_force, 
+                'k': k
+            })
+            prev_time = curr_time
+            prev_aperture = curr_aperture
+
+        await asyncio.sleep(self.delay * 2.5)
+
+        # Final adjustment
+        if complete:
+            curr_aperture = await asyncio.to_thread(self.get_aperture, 'both')
+            await asyncio.to_thread(self.set_goal_aperture, curr_aperture - dx, 'both', False)
+        else:
+            await asyncio.to_thread(self.open_gripper)
+
+        if self.debug:
+            print(f"Final aperture: {curr_aperture} mm, Controller Goal Aperture: {goal_aperture} mm, Applied Force: {applied_force} N.")
+            print(f"Spring Constants: {k_avg} N/m")
+
+        print(grasp_log)
+        
         return curr_aperture, applied_force, k_avg, grasp_log
 
     # gripper motion
@@ -463,10 +692,22 @@ class Gripper:
             pos_load_l = [[], []]
             pos_load_r = [[], []]
             self.record_load_both_helper(stop_ax12, sign, [pos_load_l, pos_load_r], debug)
+            load_l = np.array(pos_load_l[1])
+            load_l[load_l > 1023] -= 1023
+            self.recorded_contact_force_l = self.load_to_N(np.mean(load_l))
+            load_r = np.array(pos_load_r[1])
+            load_r[load_r > 1023] -= 1023
+            self.recorded_contact_force_r = self.load_to_N(np.mean(load_r))
+            self.recorded_contact_force = np.mean([self.recorded_contact_force_l, self.recorded_contact_force_r])
             return pos_load_l, pos_load_r
         else:
             pos_load = [[], []]
             self.record_load_helper(stop_ax12, sign, pos_load, finger=finger, debug=debug)
+            load = np.array(pos_load[1])
+            if finger=='left':
+                self.recorded_contact_force_l = self.load_to_N(np.mean(load))
+            else:
+                self.recorded_contact_force_r = self.load_to_N(np.mean(load))
             return pos_load
 
     # only for left or right finger, not both
@@ -512,7 +753,7 @@ class Gripper:
             time.sleep(self.delay * 2)
             curr_pos = self.get_position(finger='both')
             curr_load = self.get_load(finger='both')
-            time.sleep(self.delay)
+            time.sleep(self.latency)
             if debug:
                 print(f'left position: {curr_pos[0]}, load: {curr_load[1]}')
                 print(f'right position: {curr_pos[1]}, load: {curr_load[1]}')
@@ -548,9 +789,10 @@ class Gripper:
             avg_l = self.load_to_N(np.mean(load_l))
             max_r = self.load_to_N(np.max(load_r))
             max_l = self.load_to_N(np.max(load_l))
-            print(f"stop_load: {stop_load}, stop_force: {stop_force} N")
-            print(f"force_r: {max_r} N, force_l: {max_l} N")
-            print(f"avg_r: {avg_r} N, avg_l: {avg_l} N")
+            if self.debug:
+                print(f"stop_load: {stop_load}, stop_force: {stop_force} N")
+                print(f"force_r: {max_r} N, force_l: {max_l} N")
+                print(f"avg_r: {avg_r} N, avg_l: {avg_l} N")
             # returns True if either finger slips
             return [not any(load_r > stop_load) or not any(load_l > stop_load),
                     [avg_r, avg_l],
