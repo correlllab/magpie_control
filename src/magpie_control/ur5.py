@@ -111,6 +111,7 @@ class UR5_Interface:
             # self.gripper = Motors( servoPort )
             # self.gripper.torquelimit( self.torqLim )
             self.gripper = Gripper( servoPort )
+            print( "Connected to gripper!" )
             # self.gripper.set_torque( self.torqLim, finger='both')
         else:
             raise RuntimeError( "Could NOT connect to gripper Dynamixel board!" )
@@ -256,8 +257,10 @@ class UR5_Interface:
         self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
         self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
         self.home = self.getPose()
-        if self.provide_gripper: self.start_gripper()
-        if self.provide_ft_sensor: self.start_ft_sensor()
+        if self.provide_gripper: 
+            self.start_gripper()
+        if self.provide_ft_sensor: 
+            self.start_ft_sensor()
 
     def halt( self ):
         """ I don't actually know if this is safe to do! """
