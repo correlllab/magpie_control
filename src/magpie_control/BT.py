@@ -15,7 +15,10 @@ from py_trees.composites import Sequence
 from magpie_control.poses import pose_error
 from magpie_control.ur5 import UR5_Interface
 
-_GRIP_WAIT_S = 1.5
+# _GRIP_WAIT_S = 1.5
+# _GRIP_WAIT_S = 1.0
+_GRIP_WAIT_S = 1.125
+# _GRIP_WAIT_S = 0.5
 _DUMMYPOSE   = np.eye(4)
 
 
