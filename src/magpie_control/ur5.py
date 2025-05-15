@@ -458,11 +458,11 @@ class UR5_Interface:
             raise ValueError( "Pose must be a 4x4 homogeneous matrix" )
         self.home = pose
 
-    def set_gripper( self, width ):
+    def set_gripper( self, width, disable_wait = False ):
         """ Computes the servo angles needed for the jaws to be width mm apart """
         # Sends command over serial to the gripper to hold those angles
         # self.gripper.position( self.gripper.distance2theta( width) )
-        self.gripper.set_goal_aperture( width, finger = 'both', debug = False, record_load = False )
+        self.gripper.set_goal_aperture( width, finger = 'both', debug = False, record_load = False, disable_wait = disable_wait )
 
     def set_grip_N( self, N ):
         """ Set the gripper fingers to N [N] """

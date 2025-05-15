@@ -127,14 +127,14 @@ class Gripper:
         open2 = int((self.Finger2theta_max-4)*1023/300)
         self.Finger1.set_goal_position(open1)
         self.Finger2.set_goal_position(open2)
-        time.sleep(0.1) # 100ms
+        time.sleep( 0.005 ) # 5ms
 
     def close_gripper(self):
         close1 = int((self.Finger1theta_max-4)*1023/300)
         close2 = int((self.Finger2theta_min+4)*1023/300)
         self.Finger1.set_goal_position(close1)
         self.Finger2.set_goal_position(close2)
-        time.sleep(0.1) # 100ms
+        time.sleep( 0.005 ) # 5ms
 
     def reset_and_close_gripper(self, force_limit=2, record=False):
         self.reset_packet_overload(force_limit=force_limit)
@@ -289,7 +289,7 @@ class Gripper:
         aperture = (aperture / 2.0) if finger=='both' else aperture
         return self.theta_to_z(self.aperture_to_theta(aperture), debug=debug)
 
-    def set_goal_aperture(self, aperture, finger='both', debug=False, record_load=True):
+    def set_goal_aperture( self, aperture, finger='both', debug=False, record_load=True, disable_wait = False ):
         '''
         @param aperture goal gripper width in mm
         '''
@@ -299,7 +299,9 @@ class Gripper:
         aperture = (aperture / 2.0) if finger=='both' else aperture
         # if both, just calculates delta_ticks for right finger (ugly code).
         delta_ticks = self.theta_to_position(
-                      self.aperture_to_theta(aperture), finger=finger)
+            self.aperture_to_theta(aperture), 
+            finger=finger
+        )
         delta_ticks = np.abs(delta_ticks - self.get_position(finger='right' if finger=='both' else finger))
         # each tick (0.29 deg) at speed 100 (~11 rpm) takes 4.4ms to actuate + 1ms buffer
         wait_time = delta_ticks * self.delay * 2.0 # fat buffer for now
@@ -315,7 +317,8 @@ class Gripper:
             self.Finger1.set_goal_position(self.theta_to_position(theta, finger='left', debug=debug))
         elif finger=='right':
             self.Finger2.set_goal_position(self.theta_to_position(theta, finger='right', debug=debug))
-        time.sleep(wait_time)
+        if not disable_wait:
+            time.sleep(wait_time)
 
     # return aperture, but with math.cos
     def theta_to_aperture(self, theta):

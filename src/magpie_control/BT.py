@@ -15,9 +15,9 @@ from py_trees.composites import Sequence
 from magpie_control.poses import pose_error
 from magpie_control.ur5 import UR5_Interface
 
-# _GRIP_WAIT_S = 1.5
+_GRIP_WAIT_S = 1.5
 # _GRIP_WAIT_S = 1.0
-_GRIP_WAIT_S = 1.125
+# _GRIP_WAIT_S = 1.125
 # _GRIP_WAIT_S = 0.5
 _DUMMYPOSE   = np.eye(4)
 
@@ -36,7 +36,7 @@ class BasicBehavior( Behaviour ):
             super().__init__( name = str( name ) )
         self.ctrl : UR5_Interface = ctrl
         self.msg    = ""
-        self.paused  = False
+        self.paused = False
         if self.ctrl is None:
             self.logger.warning( f"{self.name} is NOT conntected to a robot controller!" )
         
@@ -284,7 +284,7 @@ class Set_Gripper( BasicBehavior ):
     def initialise( self ):
         """ Actually Move """
         super().initialise()
-        self.ctrl.set_gripper( self.width_m )
+        self.ctrl.set_gripper( self.width_m, disable_wait = True )
         sleep( self.wait_s )
         
     
