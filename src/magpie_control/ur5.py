@@ -66,14 +66,20 @@ def get_USB_port_with_desc( descStr ):
 
 
 ########## UR5 INTERFACE ###########################################################################
-
+from typing import Callable
 
 class UR5_Interface:
     """ Interface class to `ur_rtde` """
 
+    @staticmethod
+    def dummy_cb():
+        return None
+
+
     def set_tcp_to_camera_xform( self, xform ):
         """ Set the camera transform """
         self.camXform = np.array( xform )
+
 
     def __init__( self, robotIP = "192.168.0.4", cameraXform = None, freq = 500, 
                  record=False, record_path=None, provide_gripper=False, provide_ft_sensor=False ):
@@ -103,6 +109,13 @@ class UR5_Interface:
             self.set_tcp_to_camera_xform( _CAMERA_XFORM )
         else:
             self.set_tcp_to_camera_xform( cameraXform )
+        self.move_cb : Callable = UR5_Interface.dummy_cb
+
+
+    def set_move_callback( self, cbFunc : Callable ):
+        """ This function should be called after every move """
+        self.move_cb = cbFunc
+
 
     def start_gripper( self ):
         servoPort = get_USB_port_with_desc( "OpenRB" )
@@ -116,9 +129,11 @@ class UR5_Interface:
         else:
             raise RuntimeError( "Could NOT connect to gripper Dynamixel board!" )
 
+
     def start_ft_sensor( self, ip_address: str = "192.168.0.5", port: int = 49152, poll_rate=50):
         self.ft_sensor = OptoForce(ip_address = ip_address, port = port, poll_rate = poll_rate)
         self.ft_sensor.connect()
+
 
     def reset_gripper_overload( self, restart = True ):
         """ Attempt to clear an overload error """
@@ -131,8 +146,10 @@ class UR5_Interface:
         else:
             print( "Gripper not connected, cannot reset overload" )
 
+
     def get_ft_data(self):
         return self.ft_sensor.recv_datum()
+
 
     def ft_control(self, qGoal, force, speed = 0.1):
         condition = FTCondition(self.ft_sensor, force)
@@ -140,6 +157,7 @@ class UR5_Interface:
         self.moveJ(qGoal, rotSpeed = speed, asynch = True)
         self.threaded_conditional_stop(condition.cond)
         #TODO: development is here. Test if working?
+
 
     def get_control_update(self, cmd=np.zeros(6), ft_goal=np.zeros(6), 
                         ft_meas=np.zeros(6), p=0.0005, control_type="bang_bang"):
@@ -157,6 +175,7 @@ class UR5_Interface:
             cmd = np.hstack((cmd_l, cmd_a))
             return cmd
         return np.zeros(6)
+
 
     def force_position_control(self, wrench=np.zeros(6), init_cmd=np.zeros(6), 
                                goal_delta=[0,0,0], max_force=10, duration = 5, 
@@ -200,6 +219,7 @@ class UR5_Interface:
             ft_prev = ft_curr
 
         self.ctrl.speedL([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.5, 0.25)
+
 
     async def concurrent_gripper_camera_robot_control(self, wrench=np.zeros(6), grasp_force=2.0,
                                 init_cmd=np.zeros(6), goal_delta=[0,0,0], max_force=10, 
@@ -252,6 +272,7 @@ class UR5_Interface:
         sleep(0.1)
         sched.run()
 
+
     def start( self ):
         """ Connect to RTDE and the gripper """
         self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
@@ -262,9 +283,11 @@ class UR5_Interface:
         if self.provide_ft_sensor: 
             self.start_ft_sensor()
 
+
     def halt( self ):
         """ I don't actually know if this is safe to do! """
         self.ctrl.servoStop()
+
 
     def revive(self):
         if not self.ctrl.isConnected():
@@ -274,6 +297,7 @@ class UR5_Interface:
             self.recv.reconnect()
             sleep(0.5)
         
+
     def stop( self ):
         """ Shutdown robot and gripper connections """
         self.ctrl.servoStop()
@@ -283,18 +307,22 @@ class UR5_Interface:
         if self.ft_sensor is not None:
             self.ft_sensor.close()
         
+
     def get_name( self ):
         """ Get string that represents this robot """
         return self.name
+
 
     def get_joint_angles( self ):
         """ Returns a 6 element numpy array of joint angles (radians) """
         return np.array( self.recv.getActualQ() )
 
+
     def get_tcp_pose( self ) -> np.ndarray:
         """ Returns the current pose of the gripper as a SE3 Object (4 x 4 Homegenous Transform) """
         # return sm.SE3( pose_vector_to_homog_coord( self.recv.getActualTCPPose() ) )
         return pose_vector_to_homog_coord( self.recv.getActualTCPPose() )
+
 
     def getPose(self):
         # Returns the current pose of the last frame as a SE3 Object (4 x 4 Homegenous Transform)
@@ -304,11 +332,13 @@ class UR5_Interface:
         # T_N.plot(name="C")
         return T_N    # T_N is a homogenous transform
 
+
     def poseVectorToMatrix(self, poseVector):
         # Converts poseVector into an SE3 Object (4 x 4 Homegenous Transform)
         # poseVector is a 6 element list of [x, y, z, rX, rY, rZ]
         T_N = sm.SE3(poses.pose_vec_to_mtrx(poseVector))
         return T_N
+
 
     def get_cam_pose( self ) -> np.ndarray:
         """ Returns the current pose of the gripper as a SE3 Object (4 x 4 Homegenous Transform) """
@@ -320,6 +350,7 @@ class UR5_Interface:
             # pose_vector_to_homog_coord( self.recv.getActualTCPPose() )
         )
 
+
     def get_sensor_pose_in_robot_frame( self, sensorPose ) -> np.ndarray:
         """ Get a pose obtained from segmentation in the robot frame """
         return np.dot(
@@ -329,12 +360,15 @@ class UR5_Interface:
             # self.get_cam_pose()
         )
 
+
     def moveJ( self, qGoal, rotSpeed = 1.05, rotAccel = 1.4, asynch = True ):
         """ qGoal is a 6 element numpy array of joint angles (radians) """
         # speed is joint velocity (rad/s)
         if self.record:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveJ( list( qGoal ), rotSpeed, rotAccel, asynch )
+        self.move_cb()
+
 
     def moveL( self, poseMatrix, linSpeed = 0.25, linAccel = 0.5, asynch = True):
         """ 
@@ -345,6 +379,8 @@ class UR5_Interface:
         if self.record:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_TCP_pose"])
         self.ctrl.moveL( homog_coord_to_pose_vector( poseMatrix ), linSpeed, linAccel, asynch )
+        self.move_cb()
+
 
     def moveL_translation_tooltip( self, poseMatrix, TCP=np.zeros(3), z_offset=None, linSpeed = 0.25, linAccel = 0.5, asynch = True):
         """ 
@@ -360,6 +396,8 @@ class UR5_Interface:
         goal = np.array(self.getPose()) @ T
         print(f"Goal Pos: {goal[:3, 3]}")
         self.moveL(goal, linSpeed, linAccel, asynch)
+        self.move_cb()
+
 
     def speedL( self, speedL_cmd, linSpeed = 0.25, linAccel = 0.5 ):
         """ Set the linear speed and acceleration for the robot """
@@ -367,9 +405,12 @@ class UR5_Interface:
             self.recv.startFileRecording(self.record_path, ["timestamp", "actual_q", "actual_qd", "actual_TCP_pose", "actual_TCP_speed"])
         self.ctrl.speedL( speedL_cmd, linSpeed, linAccel )
 
+
     def move_safe( self, rotSpeed = 1.05, rotAccel = 1.4, asynch = True ):
         """ Moves the arm linearly in joint space to home pose """
         self.moveJ( self.Q_safe, rotSpeed, rotAccel, asynch )
+        self.move_cb()
+
 
     def moveL_delta(self, delta, frame="base", z_offset=0.0):
         '''
@@ -391,6 +432,8 @@ class UR5_Interface:
             wrist[2, 3] += z_offset
             goal = T @ wrist
         self.moveL(goal)
+        self.move_cb()
+
 
     async def moveL_delta_async(self, delta, frame="base", z_offset=0.0):
         '''
@@ -413,6 +456,7 @@ class UR5_Interface:
             goal = T @ wrist
         self.moveL(goal)
 
+
     def speedL_TCP(self, wrist_speedL_cmd, linSpeed = 0.25, linAccel = 0.5, tooltip=False):
         '''
         moves the tool at some velocity in the wrist frame
@@ -431,6 +475,7 @@ class UR5_Interface:
         speedL_cmd = np.hstack((v_b, w_b))
         self.speedL(speedL_cmd, linSpeed, linAccel)
 
+
     def toggle_teach_mode(self):
         status = self.ctrl.getRobotStatus()
         if status == 7: # in teach mode
@@ -438,18 +483,22 @@ class UR5_Interface:
         elif status == 3: # regular control mode
             self.ctrl.teachMode()
 
+
     def stop_recording(self):
         if self.record:
             self.recv.stopFileRecording()
+
 
     def p_moving( self ):
         """ Return True if the robot is in motion, Otherwise return False """
         return not self.ctrl.isSteady()
 
+
     def open_gripper( self ):
         """ Open gripper to the fullest extent """
         # self.gripper.openGripper()
         self.gripper.open_gripper()
+
 
     def set_home( self, pose ):
         """ Set the home pose of the robot """
@@ -458,11 +507,13 @@ class UR5_Interface:
             raise ValueError( "Pose must be a 4x4 homogeneous matrix" )
         self.home = pose
 
+
     def set_gripper( self, width, disable_wait = False ):
         """ Computes the servo angles needed for the jaws to be width mm apart """
         # Sends command over serial to the gripper to hold those angles
         # self.gripper.position( self.gripper.distance2theta( width) )
         self.gripper.set_goal_aperture( width, finger = 'both', debug = False, record_load = False, disable_wait = disable_wait )
+
 
     def set_grip_N( self, N ):
         """ Set the gripper fingers to N [N] """
@@ -472,14 +523,17 @@ class UR5_Interface:
         else:
             print( f"Force value {N} is out of range (0-16 N)" )
 
+
     def close_gripper( self ):
         """ Set the gripper fingers to near-zero gap """
         # self.set_gripper( self.gripClos_m )
         self.gripper.close_gripper()
 
+
     def get_gripper_sep( self ):
         """ Return the separation between the gripper fingers in [m] """
         return self.gripper.get_aperture( finger = 'both' ) / 1000.0
+
 
     # rotation matrix with -1, 1, -1 on diagonal
     def orient_TCP_down( self ):
@@ -488,6 +542,8 @@ class UR5_Interface:
         p = np.array(self.getPose())
         p[:3, :3] = R
         self.moveL(p)
+        self.move_cb()
+        
 
     def align_tcp( self, lock_roll = False, lock_pitch = False, lock_yaw = False ):
         """
@@ -523,4 +579,5 @@ class UR5_Interface:
         rot_matrix = poses.rpy_to_rotation_mtrx( R )
         pose[0:3, 0:3] = rot_matrix
         self.moveL( pose )
+        self.move_cb()
         return pose
