@@ -346,8 +346,6 @@ class UR5_Interface:
         return np.dot(
             pose_vector_to_homog_coord( self.recv.getActualTCPPose() ),
             self.camXform
-            # self.camXform,
-            # pose_vector_to_homog_coord( self.recv.getActualTCPPose() )
         )
 
 
