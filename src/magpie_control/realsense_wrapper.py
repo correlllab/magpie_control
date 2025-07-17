@@ -206,24 +206,24 @@ class RealSense():
         self.deviceManager._enabled_devices[ self.device_serial ] = Device( self.pipe, profile, product_line)
 
 
-    def getPinholeInstrinsics(self, frame):
-        # frame is a subclass of pyrealsense2.video_frame (depth_frame,etc)
+    def getPinholeInstrinsics( self, distortion = False ):
+        """ Get the intrinsics of the realsense device """
+        # Source: https://github.com/isl-org/Open3D/issues/473#issuecomment-408017937
+        frames_devices     = self.deviceManager.poll_frames()
+        # print( f"There were {len(frames_devices)} frames!" )
+        intrinsics_devices = self.deviceManager.get_device_intrinsics( frames_devices )
+        # print( f"{intrinsics_devices.keys()}" )
+        intrinsics         = intrinsics_devices[self.device_serial][rs.stream.depth]
+        dims               = self.deviceManager.get_depth_shape()
 
-        if 0:
-            intrinsics = frame.profile.as_video_stream_profile().intrinsics
+        if distortion:
+            return o3d.camera.PinholeCameraIntrinsic( intrinsics.width, intrinsics.height, 
+                                                      intrinsics.fx, intrinsics.fy, 
+                                                      intrinsics.ppx, intrinsics.ppy ), intrinsics.coeffs, dims
         else:
-            # Get the intrinsics of the realsense device
-            # Source: https://github.com/isl-org/Open3D/issues/473#issuecomment-408017937
-            frames_devices     = self.deviceManager.poll_frames()
-            # print( f"There were {len(frames_devices)} frames!" )
-            intrinsics_devices = self.deviceManager.get_device_intrinsics( frames_devices )
-            # print( f"{intrinsics_devices.keys()}" )
-            intrinsics         = intrinsics_devices[self.device_serial][rs.stream.depth]
-
-
-        return o3d.camera.PinholeCameraIntrinsic( intrinsics.width, intrinsics.height, 
-                                                  intrinsics.fx, intrinsics.fy, 
-                                                  intrinsics.ppx, intrinsics.ppy )
+            return o3d.camera.PinholeCameraIntrinsic( intrinsics.width, intrinsics.height, 
+                                                      intrinsics.fx, intrinsics.fy, 
+                                                      intrinsics.ppx, intrinsics.ppy )
     
     # def get_custom_D405_intrinsics( self ):
     #     """ People on the internet say that the correct intrinsics don't come from the API? """
