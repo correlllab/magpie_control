@@ -75,17 +75,17 @@ def transform_6d(vec, pose, pose_to_origin=True, is_wrench=True, pre_rotation: n
 
     return np.hstack((lin_new, ang_new))
 
-def vec_mag(v1):
+def vec_mag(v1) -> float:
     """ Return the magnitude of the vector """
     return np.linalg.norm(v1)
 
 
-def vec_diff_mag(v1, v2):
+def vec_diff_mag(v1, v2) -> float:
     """ Return the magnitude of the difference between two vectors """
     return np.linalg.norm(np.subtract(v1, v2))
 
 
-def vec_unit(vec):
+def vec_unit(vec : np.ndarray) -> np.ndarray:
     """ Get the unit vector in the direction of 'vec' """
     mag = np.linalg.norm(vec)
     if mag > 0.000001:
@@ -94,7 +94,7 @@ def vec_unit(vec):
         return vec
 
 
-def vec_angle_between(v1, v2):
+def vec_angle_between(v1, v2) -> float:
     """ Returns the axis-angle in radians between vectors 'v1' and 'v2' """
     # URL, angle between two vectors: http://stackoverflow.com/a/13849249/893511
     v1_u = vec_unit(v1)
