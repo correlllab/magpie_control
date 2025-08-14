@@ -5,6 +5,7 @@ import time
 from time import sleep
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from traceback import print_exc
 
 # Numpy
 import numpy as np
@@ -275,6 +276,7 @@ class UR5_Interface:
 
     def start( self ):
         """ Connect to RTDE and the gripper """
+        # try:
         self.ctrl = rtde_control.RTDEControlInterface( self.robotIP )
         self.recv = rtde_receive.RTDEReceiveInterface( self.robotIP, self.freq )
         self.home = self.getPose()
@@ -282,6 +284,10 @@ class UR5_Interface:
             self.start_gripper()
         if self.provide_ft_sensor: 
             self.start_ft_sensor()
+        # except RuntimeError as e:
+        #     print_exc()
+        #     print( f"UR5 could not be started because --> {e}" )
+            
 
 
     def halt( self ):
