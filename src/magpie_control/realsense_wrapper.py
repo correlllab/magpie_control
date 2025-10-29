@@ -71,22 +71,7 @@ class MPCD:
         self.rgbd   = rgbd
         self.xyzArr = xyzArr
         self.rgbArr = rgbArr
-        self.aabb   = None
-
-
-    # def get_aabb( self ):
-    #     
-    #     rtnBB = np.zeros( (2,3,) )
-    #     rtnBB[0,:] = self.xyzArr.min( axis=(0,1,) )
-    #     rtnBB[1,:] = self.xyzArr.max( axis=(0,1,) )
-    #     print( f"AABB: {rtnBB}" )
-    #     self.aabb = rtnBB.copy()
-    #     return rtnBB
-
-
-    # def get_aabb_volume( self ):
-    #     
-    #     
+        self.aabb   = None  
 
 
     def get_full_cpcd( self, minVal = 0.070, maxVal = 18.00 ):
