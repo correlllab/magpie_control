@@ -453,7 +453,8 @@ class RealSense():
         rawRGBDImage = self.takeImages()
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
             rawRGBDImage,
-            self.pinholeInstrinsics,
+            # self.pinholeInstrinsics,
+            self.getPinholeInstrinsics(),
             project_valid_depth_only=True,
             extrinsic=self.extrinsics
         )
