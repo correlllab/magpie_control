@@ -191,7 +191,7 @@ class RealSense():
         self.deviceManager._enabled_devices[ self.device_serial ] = Device( self.pipe, profile, product_line)
 
 
-    def getPinholeInstrinsics( self, distortion = False ):
+    def getPinholeInstrinsics( self, colorFrame, distortion = False ):
         """ Get the intrinsics of the realsense device """
         # Source: https://github.com/isl-org/Open3D/issues/473#issuecomment-408017937
         frames_devices     = self.deviceManager.poll_frames()
@@ -453,8 +453,7 @@ class RealSense():
         rawRGBDImage = self.takeImages()
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
             rawRGBDImage,
-            # self.pinholeInstrinsics,
-            self.getPinholeInstrinsics(),
+            self.pinholeInstrinsics,
             project_valid_depth_only=True,
             extrinsic=self.extrinsics
         )
