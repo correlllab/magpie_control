@@ -260,15 +260,16 @@ class Gripper:
         self.open_gripper()
         time.sleep(0.0025)
         
+    def zero_eflesh_sensors(self):
         # Zero eflesh sensors after opening gripper
-        # if self.eflesh_available:
-        #     print("Zeroing eflesh sensors...")
-        #     for i, sensor in enumerate(self.eflesh_sensors):
-        #         try:
-        #             sensor.zero(num_samples=5)
-        #             print(f"  Sensor {i+1} zeroed")
-        #         except Exception as e:
-        #             print(f"  Failed to zero sensor {i+1}: {e}")
+        if self.eflesh_available:
+            print("Zeroing eflesh sensors...")
+            for i, sensor in enumerate(self.eflesh_sensors):
+                try:
+                    sensor.zero(num_samples=5)
+                    print(f"  Sensor {i+1} zeroed")
+                except Exception as e:
+                    print(f"  Failed to zero sensor {i+1}: {e}")
 
     def open_gripper(self):
         open1 = int((self.Finger1theta_min+4)*1023/300)
