@@ -16,7 +16,7 @@ import glob
 
 class Gripper:
     
-    def __init__(self, servoport=None, debug=False, use_eflesh=True):
+    def __init__(self, servoport=None, debug=False, use_eflesh=False):
         """
         Initialize gripper with dynamixel motors and optional eflesh sensors.
         
@@ -261,14 +261,14 @@ class Gripper:
         time.sleep(0.0025)
         
         # Zero eflesh sensors after opening gripper
-        if self.eflesh_available:
-            print("Zeroing eflesh sensors...")
-            for i, sensor in enumerate(self.eflesh_sensors):
-                try:
-                    sensor.zero(num_samples=5)
-                    print(f"  Sensor {i+1} zeroed")
-                except Exception as e:
-                    print(f"  Failed to zero sensor {i+1}: {e}")
+        # if self.eflesh_available:
+        #     print("Zeroing eflesh sensors...")
+        #     for i, sensor in enumerate(self.eflesh_sensors):
+        #         try:
+        #             sensor.zero(num_samples=5)
+        #             print(f"  Sensor {i+1} zeroed")
+        #         except Exception as e:
+        #             print(f"  Failed to zero sensor {i+1}: {e}")
 
     def open_gripper(self):
         open1 = int((self.Finger1theta_min+4)*1023/300)
