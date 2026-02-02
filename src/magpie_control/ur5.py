@@ -182,16 +182,26 @@ class UR5_Interface:
                                goal_delta=[0,0,0], max_force=10, duration = 5, 
                                tolerance = 0.1, p=0.0005, control_type="bang_bang"):
 
-        self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper.gripper_log = [], [], [], {}, {}
+        # self.gripper.cf_t, self.gripper.cf_t_ts, self.ft_t, self.robot_log, self.gripper.gripper_log = [], [], [], {}, {}
+        self.ft_t, self.robot_log = [], {}
         pose, T_w  = np.array(self.getPose()), sm.SE3(goal_delta).A
         goal_pose = pose @ T_w
         distance = np.linalg.norm(goal_pose[:3, 3] - pose[:3, 3])
         ft_goal, ft_prev = np.array(wrench).clip(min=-1*max_force, max=max_force), self.get_ft_data()
         speedL_cmd_w = init_cmd # initial cmd
         start = time.time()
+        if self.debug:
+            print(f"Starting force-position control with goal delta {goal_delta}, max force {max_force} N")
+            print(f"Initial Distance to goal: {distance:.4f} m")
+            print(f"Initial FT: {ft_prev}, Goal FT: {ft_goal}")
+            print(f"Initial Speed Command (wrist frame): {speedL_cmd_w}")
 
         # force control loop
         while time.time() - start < duration and distance > tolerance:
+            if self.debug:
+                print(f"Distance to goal: {distance:.4f} m")
+                print(f"Current FT: {ft_prev}, Goal FT: {ft_goal}")
+                print(f"Current Speed Command (wrist frame): {speedL_cmd_w}")
             self.speedL_TCP(np.array(speedL_cmd_w), tooltip=True)
             ft_curr = self.get_ft_data()
             if ft_curr == []: ft_curr = ft_prev # handle null reading from optoforce
