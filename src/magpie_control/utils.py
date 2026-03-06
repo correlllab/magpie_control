@@ -17,8 +17,12 @@ if platform.system() == 'Linux':
     from psutil import sensors_temperatures
 # from tcp_latency import measure_latency
 
-import rerun as rr
-import magpie_control.realsense_wrapper as rsw
+try:
+    import rerun as rr
+    import magpie_control.realsense_wrapper as rsw
+except ImportError:
+    rr = None
+    rsw = None
 
 ##### Aliases #####
 np_choice = np.random.choice

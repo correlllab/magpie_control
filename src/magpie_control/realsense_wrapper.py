@@ -1,8 +1,12 @@
 ########## INIT ####################################################################################
 
-import open3d as o3d
+try:
+    import open3d as o3d
+    import pyrealsense2 as rs
+except ImportError:
+    o3d = None
+    rs = None
 import numpy as np
-import pyrealsense2 as rs
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
