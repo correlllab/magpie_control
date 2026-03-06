@@ -19,18 +19,19 @@ classifiers = [
 dependencies = [
   'dynamixel_sdk',
   'numpy',
-  'py_trees',
-  'spatialmath_python',
+  'spatialmath-python',
+  'anyskin',
   'splines',
-  'open3d',
-  'pyrealsense2',
   'Pillow',
-  'open3d',
   'scipy',
   'ur_rtde',
   'pyserial',
   'psutil',
-  'rerun-sdk'
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires live hardware (sensor/robot connected)",
 ]
 
 [project.urls]
