@@ -3,10 +3,11 @@ import os
 from glob import glob
 
 package_name = 'magpie_control'
+package_version = '2024.9'
 
 setup(
     name=package_name,
-    version='2.0.0',
+    version=package_version,
     packages=find_packages(where='src', exclude=['test']),
     package_dir={'': 'src'},
     data_files=[
