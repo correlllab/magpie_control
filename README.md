@@ -89,10 +89,10 @@ Close gripper:
 ros2 service call /gripper/close std_srvs/srv/Trigger "{}"
 ```
 
-Set aperture/position (meters):
+Set aperture/position (millimeters):
 
 ```bash
-ros2 service call /gripper/set_position magpie_msgs/srv/SetGripperPosition "{position: 0.040}"
+ros2 service call /gripper/set_position magpie_msgs/srv/SetGripperPosition "{position: 40.0, speed: 0.5}"
 ```
 
 Set force limit (N):
@@ -107,13 +107,94 @@ Calibrate:
 ros2 service call /gripper/calibrate std_srvs/srv/Trigger "{}"
 ```
 
+Reset parameters (torque, speed, compliance, and open pose):
+
+```bash
+ros2 service call /gripper/reset_parameters std_srvs/srv/Trigger "{}"
+```
+
 Monitor state:
 
 ```bash
 ros2 topic echo /gripper/state
 ```
 
-### 4. Common ROS2 troubleshooting
+### 4. Full Gripper Node API (Units and Interfaces)
+
+All gripper aperture/position values are in **millimeters (mm)**.
+
+#### Node executable
+
+```bash
+ros2 run magpie_control gripper_node
+```
+
+#### Startup parameters
+
+- `auto_detect_port` (bool, default: `true`): auto-discover Dynamixel serial device.
+- `port` (string, default: `/dev/ttyUSB0`): explicit serial device when auto-detect is disabled.
+- `use_eflesh` (bool, default: `false`): enable eflesh sensor initialization.
+- `default_speed` (int, default: `100`): initial Dynamixel moving speed setting.
+- `default_torque` (int, default: `200`): initial Dynamixel torque limit.
+
+Example startup with parameters:
+
+```bash
+ros2 run magpie_control gripper_node --ros-args \
+	-p auto_detect_port:=false \
+	-p port:=/dev/ttyUSB0 \
+	-p use_eflesh:=false \
+	-p default_speed:=120 \
+	-p default_torque:=220
+```
+
+#### Published topic
+
+- Topic: `/gripper/state`
+- Type: `magpie_msgs/msg/GripperState`
+- Rate: 10 Hz
+- Fields:
+	- `position` (mm)
+	- `finger_positions` (mm, `[right, left]`)
+	- `force` (N)
+	- `temperature` (C)
+	- `is_moving` (bool)
+	- `contact_detected` (bool)
+
+#### Services
+
+- `/gripper/open` (`std_srvs/srv/Trigger`)
+- `/gripper/close` (`std_srvs/srv/Trigger`)
+- `/gripper/calibrate` (`std_srvs/srv/Trigger`)
+- `/gripper/reset_parameters` (`std_srvs/srv/Trigger`)
+- `/gripper/set_force` (`magpie_msgs/srv/SetGripperForce`):
+	- request: `max_force` (N)
+- `/gripper/set_position` (`magpie_msgs/srv/SetGripperPosition`):
+	- request: `position` (mm), `speed` in [0.0, 1.0]
+	- response: `actual_position` (mm), `success`, `message`
+
+#### Action
+
+- `/gripper/deligrasp` (`magpie_msgs/action/DeliGrasp`)
+- goal params (`magpie_msgs/msg/DeliGraspParams`):
+	- `goal_aperture` (mm)
+	- `initial_force` (N)
+	- `additional_closure` (mm)
+	- `additional_force` (N)
+	- `complete_grasp` (bool)
+- result:
+	- `final_aperture` (mm)
+	- `final_force` (N)
+	- `force_log` (N samples)
+
+Example action call:
+
+```bash
+ros2 action send_goal /gripper/deligrasp magpie_msgs/action/DeliGrasp \
+"{params: {goal_aperture: 35.0, initial_force: 1.5, additional_closure: 1.0, additional_force: 0.2, complete_grasp: true}}"
+```
+
+### 5. Common ROS2 troubleshooting
 
 - Make sure your ROS distro is sourced before workspace setup:
 
