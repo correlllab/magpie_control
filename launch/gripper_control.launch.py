@@ -12,12 +12,12 @@ import os
 
 def generate_launch_description():
     # Get package directory
-    pkg_magpie_bringup = get_package_share_directory('magpie_bringup')
+    pkg_magpie_control = get_package_share_directory('magpie_control')
     
     # Declare arguments
     gripper_config_file = DeclareLaunchArgument(
         'gripper_config',
-        default_value=os.path.join(pkg_magpie_bringup, 'config', 'gripper_config.yaml'),
+        default_value=os.path.join(pkg_magpie_control, 'config', 'gripper_config.yaml'),
         description='Path to gripper configuration file'
     )
     
