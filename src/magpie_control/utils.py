@@ -93,7 +93,7 @@ def vec_unit(vec : np.ndarray) -> np.ndarray:
     """ Get the unit vector in the direction of 'vec' """
     mag = np.linalg.norm(vec)
     if mag > 0.000001:
-        return np.divide( vec, mag ) 
+        return np.divide( vec, mag )
     else:
         return vec
 
@@ -229,10 +229,10 @@ def position_from_pose( pose ):
     return [ pose[i][3] for i in range(3) ]
 
 def combine_poses( rot_pose = None , trans_pose = None ):
-    """ Return a pose that is the position of `trans_pose` and the orientation of `rot_pose` """    
+    """ Return a pose that is the position of `trans_pose` and the orientation of `rot_pose` """
     pose = np.ones((4,4))
     pose[:4,:3] = rot_pose[:4,:3]
-    pose[:4,3] = trans_pose[:4,3] 
+    pose[:4,3] = trans_pose[:4,3]
     return pose
 
 def transform_vectors( vectors , pose ):
@@ -244,9 +244,9 @@ def rotate_vectors( vectors ,
                     rx = 0.0 , ry = 0.0 , rz = 0.0 ,
                     k = np.array([1.0, 0.0, 0.0]) , theta = None ,
                     frame = 'base' ):
-    pose = rotate_pose( origin_pose() , 
+    pose = rotate_pose( origin_pose() ,
                         rx = rx , ry = ry , rz = rz ,
-                        k = k , theta = theta , 
+                        k = k , theta = theta ,
                         frame = frame )
     return transform_vectors( vectors , pose )
 
@@ -353,8 +353,8 @@ class Counter:
         """ Manually set the counter """
         self.count = int(i)
 
-        
-        
+
+
 ########## CONTAINER FUNCTIONS ####################################################################
 
 
@@ -375,7 +375,7 @@ def merge_Adict_into_Bdict(Adict, Bdict, overWrite=1):
     for key, val in Adict.items():
         if overWrite or (key not in Bdict):
             Bdict[key] = val
-            
+
 def is_matx_list( arg ):
     """ Return true if this is a matrix or a list """
     return type( arg ) in ( np.ndarray , list )
@@ -403,25 +403,25 @@ def N_to_lbF(N):
 
 def get_stopwatch():
     lastTime = now()
-    
+
     def elapsed():
         nonlocal lastTime
         dur = now() - lastTime
         lastTime = now()
         return dur
-    
-    return elapsed
-        
 
-class HeartRate: 
+    return elapsed
+
+
+class HeartRate:
     """ Sleeps for a time such that the period between calls to sleep results in a frequency not greater than the specified 'Hz' """
     # NOTE: This fulfills a purpose similar to the rospy rate
-    
+
     def __init__( self , Hz ):
         """ Create a rate object with a Do-Not-Exceed frequency in 'Hz' """
         self.period = 1.0 / Hz; # Set the period as the inverse of the frequency , hearbeat will not exceed 'Hz' , but can be lower
         self.last = time.time()
-    
+
     def sleep( self ):
         """ Sleep for a time so that the frequency is not exceeded """
         elapsed = time.time() - self.last
@@ -433,7 +433,7 @@ class HeartRate:
 
 class TimerThread( threading.Thread ):
     """ Continue to do work until the thread is killed """
-    
+
     def __init__( self , Q , workFunc , updateHz , stopToken = None ):
         """ Set up worker and queue management """
         super().__init__()
@@ -444,7 +444,7 @@ class TimerThread( threading.Thread ):
         self.killed    = False # Flag for whether anyone has asked this thread to die
         self.count     = 0 # --- DEBUG: Count how many commands were run before dying
         self._DEBUG    = 0 # --- DEBUG: flag
-        
+
     def run( self ):
         """ Execute the work function repeatedly until asked to stop """
         # 0. Initialize the queue with one item
@@ -472,12 +472,12 @@ class TimerThread( threading.Thread ):
                 #print( "TimerThread: About to do the work!" )
                 self.workF()
                 self.count += 1
-                
+
                 if self._DEBUG:  print( "Thread executed" , self.count , "times" )
 
 class TimerQueue( Queue ):
     """ Perform work at semi-steady intervals until asked to stop """
-    
+
     def __init__( self , workFunc , updateHz , stopToken = None ):
         """ Set up the queue """
         super().__init__()
@@ -487,21 +487,21 @@ class TimerQueue( Queue ):
         self.worker    = None
         self.running   = False
         #print( "TimerQueue: has a work function" )
-        
+
     def start( self ):
         """ Start work and run forever """
         #print( "TimerQueue: START" )
         self.worker  = TimerThread( Q = self , workFunc = self.workFunc , updateHz = self.updateHz , stopToken = self.stopToken )
         self.running = True
         self.worker.start()
-        
+
     def stop( self ):
         """ Administer the poison pill """
         #print( "TimerQueue: STOP" )
         if ( not self.empty() ) or ( self.is_running() ):
             self.put( self.stopToken )
         self.running = False
-        
+
     def is_running( self ):
         """ Return true if the worker is working, otherwise return false """
         try:
@@ -509,8 +509,8 @@ class TimerQueue( Queue ):
         except:
             return False
 
-        
-        
+
+
 ########## MONITORING FUNCTIONS ###################################################################
 
 
@@ -535,7 +535,7 @@ def average_CPU_temp( cpuDct, label = 'avg_temp' ):
             total += v
     cpuDct[ label ] = (total / count)
     return cpuDct
-    
+
 
 def network_thermal_health( remoteHosts = None ):
     """ Get the local host temperatures and latency to a remote host """
@@ -559,7 +559,7 @@ def temp_trends( T, series, names = None ):
     import matplotlib.pyplot as plt
 
     # plot lines
-    for i,S in enumerate( series ): 
+    for i,S in enumerate( series ):
         if names is not None:
             lbl = names[i]
         else:

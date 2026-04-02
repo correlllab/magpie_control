@@ -1,7 +1,6 @@
 import asyncio
 from magpie_control.ax12 import Ax12
 import math
-import spatialmath as sm
 import copy
 import time
 import numpy as np
@@ -15,11 +14,11 @@ import serial
 import glob
 
 class Gripper:
-    
+
     def __init__(self, servoport=None, debug=False, use_eflesh=False):
         """
         Initialize gripper with dynamixel motors and optional eflesh sensors.
-        
+
         Args:
             servoport: Specific port for dynamixel (if None, will auto-detect)
             debug: Enable debug output
@@ -29,7 +28,7 @@ class Gripper:
         self.use_eflesh = use_eflesh
         self.eflesh_sensors = []  # List of EfleshDriver instances
         self.eflesh_available = False
-        
+
         # Find USB ports
         if servoport is None:
             print("Auto-detecting USB ports...")
@@ -38,21 +37,21 @@ class Gripper:
             eflesh_ports = ports['eflesh_sensors']
         else:
             eflesh_ports = []
-        
+
         if servoport is None:
             raise RuntimeError("Could not find dynamixel port. Please specify manually.")
-        
+
         # Initialize dynamixel motors
         Ax12.DEVICENAME = servoport
         Ax12.BAUDRATE = 1_000_000
         Ax12.connect()
-        
+
         # Create AX12 instances
         finger_id1 = 1  # left gripper
         finger_id2 = 2
         self.Finger1 = Ax12(finger_id1, debug=self.debug)
         self.Finger2 = Ax12(finger_id2, debug=self.debug)
-        
+
         # Motor parameters
         self.speed = 100  # about 10% speed, or 11rpm
         self.Finger1.set_moving_speed(self.speed)
@@ -61,14 +60,14 @@ class Gripper:
         self.goal_distance_both = 0  # in mm
         self.goal_distance_f1 = 0
         self.goal_distance_f2 = 0
-        
+
         # Timing parameters
         self.delay = 0.0055
         self.latency = 0.0006
-        
+
         self.Finger1.set_torque_limit(self.torque)
         self.Finger2.set_torque_limit(self.torque)
-        
+
         # Finger angle limits
         self.Finger1theta_max = 176
         self.Finger1theta_min = 85
@@ -76,14 +75,14 @@ class Gripper:
         self.Finger2theta_min = 218
         self.Finger1theta_90 = 150
         self.Finger2theta_90 = 245
-        
+
         self.default_parameters = {
             'torque': 200,
             'speed': 100,
             'compliance_margin': 1,
             'compliance_slope': 32,
         }
-        
+
         # Geometric parameters
         self.Crank = 45
         self.Finger = 80
@@ -91,7 +90,7 @@ class Gripper:
         self.OffsetCrank2Finger = 24.32
         self.servojoint = 84
         self.Camera2Ref = 63
-        
+
         # Renamed geometric parameters (matching Stephen Otto's thesis)
         self.crank_length = 45
         self.finger_length = 80
@@ -99,7 +98,7 @@ class Gripper:
         self.offset_servo_y = -21
         self.offset_finger_x = -24.32
         self.offset_finger_y = 1.32
-        
+
         # Force observations
         self.applied_force = 0.15
         self.applied_force_l = 0.075
@@ -111,7 +110,7 @@ class Gripper:
         self.cf_t_ts = []
         self.gripper_log = {}
         self.rerun_viz = None
-        
+
         # Initialize eflesh sensors if requested
         if use_eflesh and eflesh_ports:
             print(f"Initializing {len(eflesh_ports)} eflesh sensor(s)...")
@@ -122,11 +121,11 @@ class Gripper:
                     print(f"  Eflesh sensor {i+1} initialized on {port}")
                 except Exception as e:
                     print(f"  Failed to initialize eflesh sensor on {port}: {e}")
-            
+
             if self.eflesh_sensors:
                 self.eflesh_available = True
                 print(f"Eflesh sensors ready: {len(self.eflesh_sensors)} sensor(s)")
-                # Note: We cannot distinguish left/right sensors yet, 
+                # Note: We cannot distinguish left/right sensors yet,
                 # so they are assigned as sensor 1 and 2 arbitrarily
         else:
             print("Eflesh sensors not initialized")
@@ -136,7 +135,7 @@ class Gripper:
         """
         Find and identify USB ports for dynamixel and eflesh sensors.
         Tests each port to identify whether it's an eflesh sensor or dynamixel controller.
-        
+
         Returns:
             dict: {
                 'dynamixel': str or None,
@@ -144,19 +143,19 @@ class Gripper:
             }
         """
         from dynamixel_sdk import PortHandler, PacketHandler, COMM_SUCCESS
-        
+
         # Find all /dev/ttyACM* ports
         available_ports = sorted(glob.glob('/dev/ttyACM*'))
-        
+
         if not available_ports:
             print("No /dev/ttyACM* ports found")
             return {'dynamixel': None, 'eflesh_sensors': []}
-        
+
         print(f"Found ports: {available_ports}")
-        
+
         dynamixel_port = None
         eflesh_ports = []
-        
+
         def test_if_eflesh(port):
             """Test if a port is an eflesh sensor."""
             try:
@@ -170,7 +169,7 @@ class Gripper:
                 return True
             except Exception as e:
                 return False
-        
+
         def test_if_dynamixel(port):
             """Test if a port is a dynamixel controller."""
             try:
@@ -178,25 +177,25 @@ class Gripper:
                 port_handler = PortHandler(port)
                 if not port_handler.openPort():
                     return False
-                
+
                 if not port_handler.setBaudRate(1_000_000):
                     port_handler.closePort()
                     return False
-                
+
                 # Try to communicate with a motor (ID 1 or 2 should exist)
                 packet_handler = PacketHandler(1.0)  # Protocol version 1.0
-                
+
                 # Try to read model number from ID 1
                 model_number, result, error = packet_handler.read2ByteTxRx(
                     port_handler, 1, 0  # ID 1, Address 0 (model number)
                 )
-                
+
                 port_handler.closePort()
-                
+
                 # If communication was successful, it's dynamixel
                 if result == COMM_SUCCESS:
                     return True
-                
+
                 # Try ID 2 as well
                 port_handler.openPort()
                 port_handler.setBaudRate(1_000_000)
@@ -204,16 +203,16 @@ class Gripper:
                     port_handler, 2, 0  # ID 2, Address 0 (model number)
                 )
                 port_handler.closePort()
-                
+
                 return result == COMM_SUCCESS
-                
+
             except Exception as e:
                 return False
-        
+
         # Test each port
         for port in available_ports:
             print(f"Testing {port}...", end=' ', flush=True)
-            
+
             # First test if it's dynamixel (fast and safe)
             if test_if_dynamixel(port):
                 dynamixel_port = port
@@ -226,16 +225,16 @@ class Gripper:
                 print(f"✓ Eflesh sensor")
             else:
                 print(f"✗ Unknown device")
-        
+
         result = {
             'dynamixel': dynamixel_port,
             'eflesh_sensors': eflesh_ports
         }
-        
+
         print(f"\nPort assignment summary:")
         print(f"  Dynamixel: {dynamixel_port}")
         print(f"  Eflesh sensors ({len(eflesh_ports)}): {eflesh_ports}")
-        
+
         return result
 
     #this is before you attach your motors to the gripper
@@ -259,7 +258,7 @@ class Gripper:
         self.recorded_contact_force_r = 0.0
         self.open_gripper()
         time.sleep(0.0025)
-        
+
     def zero_eflesh_sensors(self):
         # Zero eflesh sensors after opening gripper
         if self.eflesh_available:
@@ -448,7 +447,7 @@ class Gripper:
         aperture = (aperture / 2.0) if finger=='both' else aperture
         # if both, just calculates delta_ticks for right finger (ugly code).
         delta_ticks = self.theta_to_position(
-            self.aperture_to_theta(aperture), 
+            self.aperture_to_theta(aperture),
             finger=finger
         )
         delta_ticks = np.abs(delta_ticks - self.get_position(finger='right' if finger=='both' else finger))
@@ -598,7 +597,7 @@ class Gripper:
                 self.apply_to_fingers('get_cw_compliance_slope', None, finger=finger, noarg=True),
                 self.apply_to_fingers('get_ccw_compliance_slope', None, finger=finger, noarg=True)
         ]
-    
+
     def poke(self, direction: str, speed, aperture, debug=False):
         '''
         @param direction: 'left' or 'right' to poke the left or right finger
@@ -617,7 +616,7 @@ class Gripper:
             self.set_goal_aperture(aperture, finger='left', record_load=False)
         time.sleep(self.delay * 3)
 
-    def deligrasp(self, x, fc, dx, df, complete=True, debug=False): 
+    def deligrasp(self, x, fc, dx, df, complete=True, debug=False):
         '''
         @param x: initial goal aperture (mm)
         @param fc: initial force (N) and requisite contact force to stop grasping
@@ -638,13 +637,13 @@ class Gripper:
 
         # first log entry
         prev_time = time.time()
-        grasp_log.append({'timestamp': prev_time, 
+        grasp_log.append({'timestamp': prev_time,
                     'aperture': curr_aperture,
-                    'gripper_vel': 0, 
+                    'gripper_vel': 0,
                     'contact_force': np.average(avg_force),
-                    'contact_force_l': avg_force[0], 
-                    'contact_force_r': avg_force[1], 
-                    'applied_force': fc, 
+                    'contact_force_l': avg_force[0],
+                    'contact_force_r': avg_force[1],
+                    'applied_force': fc,
                     'k': 0})
 
         # initialize force to contact force
@@ -669,17 +668,17 @@ class Gripper:
             k = np.mean(avg_force) * distance * 1000.0
             k_avg.append(k)
             gripper_vel = distance / (curr_time - prev_time)
-            grasp_log.append({'timestamp': curr_time, 
+            grasp_log.append({'timestamp': curr_time,
                               'aperture': curr_aperture,
-                              'gripper_vel': gripper_vel, 
+                              'gripper_vel': gripper_vel,
                               'contact_force': np.average(avg_force),
-                              'contact_force_l': avg_force[0], 
-                              'contact_force_r': avg_force[1], 
-                              'applied_force': applied_force, 
+                              'contact_force_l': avg_force[0],
+                              'contact_force_r': avg_force[1],
+                              'applied_force': applied_force,
                               'k': k})
             prev_time = curr_time
             prev_aperture = curr_aperture
-            
+
         time.sleep(self.delay * 2.5)
         # final adjustment
         if complete:
@@ -690,18 +689,18 @@ class Gripper:
         if self.debug:
             print(f"Final aperture: {curr_aperture} mm, Controller Goal Aperture: {goal_aperture} mm, Applied Force: {applied_force} N.")
             print(f"Spring Constants: {k_avg} N/m")
-        
-        ### 
+
+        ###
         # important! NEED to print grasp log so that it is captured in subprocess stdout
         print(grasp_log)
         ###
 
         return curr_aperture, applied_force, k_avg, grasp_log
 
-    async def deligrasp_async(self, x, fc, dx, df, complete=True, debug=False): 
+    async def deligrasp_async(self, x, fc, dx, df, complete=True, debug=False):
         self.debug = debug
         grasp_log = []
-        
+
         # Run blocking functions in separate threads
         await asyncio.to_thread(self.set_force, fc, 'both')
         goal_aperture = x
@@ -714,16 +713,16 @@ class Gripper:
 
         prev_time = time.time()
         grasp_log.append({
-            'timestamp': prev_time, 
+            'timestamp': prev_time,
             'aperture': curr_aperture,
-            'gripper_vel': 0, 
+            'gripper_vel': 0,
             'contact_force': np.average(avg_force),
-            'contact_force_l': avg_force[0], 
-            'contact_force_r': avg_force[1], 
-            'applied_force': fc, 
+            'contact_force_l': avg_force[0],
+            'contact_force_r': avg_force[1],
+            'applied_force': fc,
             'k': 0
         })
-        
+
         applied_force = fc
         prev_aperture = curr_aperture
         k_avg = []
@@ -748,13 +747,13 @@ class Gripper:
             k_avg.append(k)
             gripper_vel = distance / (curr_time - prev_time)
             grasp_log.append({
-                'timestamp': curr_time, 
+                'timestamp': curr_time,
                 'aperture': curr_aperture,
-                'gripper_vel': gripper_vel, 
+                'gripper_vel': gripper_vel,
                 'contact_force': np.average(avg_force),
-                'contact_force_l': avg_force[0], 
-                'contact_force_r': avg_force[1], 
-                'applied_force': applied_force, 
+                'contact_force_l': avg_force[0],
+                'contact_force_r': avg_force[1],
+                'applied_force': applied_force,
                 'k': k
             })
             prev_time = curr_time
@@ -774,7 +773,7 @@ class Gripper:
             print(f"Spring Constants: {k_avg} N/m")
 
         print(grasp_log)
-        
+
         return curr_aperture, applied_force, k_avg, grasp_log
 
     # gripper motion
@@ -893,7 +892,7 @@ class Gripper:
         curr_pos = self.get_position(finger='both')
         time.sleep(self.latency)
         # sign[sign == 0] = 1 # if 0, set to 1
-        sign[0] = 1 if sign[0] == 0 else sign[0]    
+        sign[0] = 1 if sign[0] == 0 else sign[0]
         sign[1] = 1 if sign[1] == 0 else sign[1]
         lrange = range(curr_pos[0], stop_pos[0], sign[0] * 1)
         rrange = range(curr_pos[1], stop_pos[1], sign[1] * 1)
@@ -952,7 +951,7 @@ class Gripper:
             # returns True if just one finger doesn't slip, needs to False AND False, should speed up grasps
             # return not any(load_r > stop_load) and not any(load_l > stop_load)
             # return not np.mean([avg_r, avg_l]) > stop_force # also bad
-            # return not np.mean([max_r, max_l]) > stop_force 
+            # return not np.mean([max_r, max_l]) > stop_force
         else:
             load = np.array(pos_load[1])
             load[load > 1023] -= 1023
@@ -961,11 +960,11 @@ class Gripper:
             print(f"max: {max_f} N")
             print(f"avg: {avg_f} N")
             return [not any(load > stop_load), avg_f, max_f]
-            
+
     def deligrasp_eflesh(self, x, fc, dx, df, complete=True, debug=False, num_samples=1):
         '''
         Delicate grasping using eflesh tactile sensors for force feedback.
-        
+
         @param x: initial goal aperture (mm)
         @param fc: initial force (N) and requisite contact force to stop grasping
         @param dx: change in aperture (mm) to apply to controller
@@ -980,19 +979,19 @@ class Gripper:
         '''
         if not self.eflesh_available:
             raise RuntimeError("Eflesh sensors not available. Use standard deligrasp() or initialize with eflesh sensors.")
-        
+
         grasp_log = []
         goal_aperture = x
-                
+
         # Move to the initial goal aperture to attempt the grasp
         self.set_goal_aperture(goal_aperture, finger='both', record_load=False)
         time.sleep(self.delay * 2)
-        
+
         # Read eflesh forces
         curr_aperture = self.get_aperture(finger='both')
         eflesh_forces = self._get_eflesh_forces(num_samples=num_samples)
         avg_force = np.mean(eflesh_forces)
-        
+
         # First log entry
         prev_time = time.time()
         grasp_log.append({
@@ -1005,53 +1004,53 @@ class Gripper:
             'applied_force': fc,
             'k': 0
         })
-        
+
         # Initialize force to contact force
         applied_force = fc
         prev_aperture = curr_aperture
         k_avg = []
-        
+
         # Check if we need to adjust grasp (slip detection)
         slippage = avg_force < fc
-        
+
         if debug:
             print(f"Initial - Aperture: {curr_aperture:.2f} mm, Force: {avg_force:.3f} N, Target: {fc:.3f} N")
-        
+
         # set initial grasp force to max
         self.set_force(32, finger='both')
 
         # Adjust grasp while slipping
         while slippage:
             goal_aperture -= dx
-            
+
             # Low-pass filter: only increase force if there's actual contact
             if avg_force > 0.10:
                 applied_force += df
-            
+
             # Move to new goal aperture
             self.set_goal_aperture(goal_aperture, finger='both', record_load=False)
             time.sleep(self.delay * 2)
-            
+
             # Read new aperture and forces
             curr_aperture = self.get_aperture(finger='both')
             eflesh_forces = self._get_eflesh_forces(num_samples=num_samples)
             avg_force = np.mean(eflesh_forces)
-            
+
             if debug:
                 print(f"Adjusting - Goal: {goal_aperture:.2f} mm, Current: {curr_aperture:.2f} mm")
                 print(f"  Force: {avg_force:.3f} N, Applied: {applied_force:.3f} N")
                 print(f"  Left: {eflesh_forces[0]:.3f} N, Right: {eflesh_forces[1] if len(eflesh_forces) > 1 else eflesh_forces[0]:.3f} N")
-            
+
             # Check for slip
             slippage = avg_force < fc
-            
+
             # Log data
             curr_time = time.time()
             distance = abs(curr_aperture - prev_aperture)
             k = avg_force / distance if distance > 0 else 0
             k_avg.append(k)
             gripper_vel = distance / (curr_time - prev_time) if (curr_time - prev_time) > 0 else 0
-            
+
             grasp_log.append({
                 'timestamp': curr_time,
                 'aperture': curr_aperture,
@@ -1062,33 +1061,33 @@ class Gripper:
                 'applied_force': applied_force,
                 'k': k
             })
-            
+
             prev_time = curr_time
             prev_aperture = curr_aperture
-        
+
         time.sleep(self.delay * 2.5)
-        
+
         # Final adjustment
         if complete:
             curr_aperture = self.get_aperture(finger='both')
             self.set_goal_aperture(curr_aperture - dx, finger='both', record_load=False)
         else:
             self.open_gripper()
-        
+
         if self.debug:
             print(f"Final - Aperture: {curr_aperture:.2f} mm, Goal: {goal_aperture:.2f} mm, Force: {applied_force:.3f} N")
             print(f"Spring Constants: {k_avg} N/mm")
-        
+
         # Important! Print grasp log for subprocess stdout capture
         print(grasp_log)
-        
+
         return curr_aperture, applied_force, k_avg, grasp_log
 
 
     def _get_eflesh_forces(self, num_samples=3):
         """
         Helper function to get forces from eflesh sensors.
-        
+
         @param num_samples: number of samples to average
         @return: array of forces [left, right] or [sensor1, sensor2]
         """
@@ -1101,15 +1100,15 @@ class Gripper:
                 if self.debug:
                     print(f"Error reading eflesh sensor: {e}")
                 forces.append(0.0)
-        
+
         # If we have no sensors, return zeros
         if not forces:
             return np.array([0.0, 0.0])
-        
+
         # If we have one sensor, duplicate it for both sides
         if len(forces) == 1:
             return np.array([forces[0], forces[0]])
-        
+
         # Return as array
         return np.array(forces[:2])  # Only use first 2 sensors
 
@@ -1117,16 +1116,16 @@ class Gripper:
     def get_eflesh_force(self, finger='both', num_samples=3):
         """
         Get current force reading from eflesh sensors.
-        
+
         @param finger: 'left', 'right', or 'both'
         @param num_samples: number of samples to average
         @return: force in Newtons (float for single finger, [left, right] for both)
         """
         if not self.eflesh_available:
             return 0.0 if finger != 'both' else [0.0, 0.0]
-        
+
         forces = self._get_eflesh_forces(num_samples=num_samples)
-        
+
         if finger == 'left':
             return forces[0]
         elif finger == 'right':
@@ -1156,7 +1155,7 @@ class Gripper:
         # derived by Stephen Otto empirically
         # see eqn on p17, figure 14 on p18 of: https://www.proquest.com/docview/2868478510?%20
         # invert load_to_N
-        low_load = N < 0.25 
+        low_load = N < 0.25
         a = -0.00001889 if not low_load else -0.0000007
         b = 0.038399 if not low_load else 0.0025
         c = (-3.4073 - N) if not low_load else (-N)
