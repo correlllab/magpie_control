@@ -222,24 +222,14 @@ class GripperNode(Node):
             feedback_msg.phase = 'initial_close'
             goal_handle.publish_feedback(feedback_msg)
 
-            # Use existing DeliGrasp implementation if available
-            if hasattr(self.gripper, 'deligrasp'):
-                final_aperture_mm, final_force_n, _, grasp_log = self.gripper.deligrasp(
-                    x=params.goal_aperture * 1000.0,
-                    fc=params.initial_force,
-                    dx=params.additional_closure * 1000.0,
-                    df=params.additional_force,
-                    complete=params.complete_grasp
-                )
-                force_log = [float(entry.get('contact_force', 0.0)) for entry in grasp_log]
-            else:
-                # Simple fallback: just close with torque limit
-                self.get_logger().warning('DeliGrasp not available, using simple close')
-                self.gripper.set_force(params.initial_force, finger='both')
-                self.gripper.close_gripper()
-                final_aperture_mm = self.gripper.get_aperture()
-                final_force_n = params.initial_force
-                force_log = []
+            final_aperture_mm, final_force_n, _, grasp_log = self.gripper.deligrasp(
+                x=params.goal_aperture * 1000.0,
+                fc=params.initial_force,
+                dx=params.additional_closure * 1000.0,
+                df=params.additional_force,
+                complete=params.complete_grasp
+            )
+            force_log = [float(entry.get('contact_force', 0.0)) for entry in grasp_log]
 
             # Return result
             result_msg = DeliGrasp.Result()
