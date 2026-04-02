@@ -72,6 +72,8 @@ class GripperNode(Node):
             SetGripperForce, 'gripper/set_force', self.set_force_callback)
         self.srv_calibrate = self.create_service(
             Trigger, 'gripper/calibrate', self.calibrate_callback)
+        self.srv_reset_parameters = self.create_service(
+            Trigger, 'gripper/reset_parameters', self.reset_parameters_callback)
 
         # Create action server for DeliGrasp
         self.action_server = ActionServer(
@@ -93,7 +95,7 @@ class GripperNode(Node):
         """Publish current gripper state"""
         try:
             msg = GripperState()
-            msg.position = self.gripper.get_aperture() / 1000.0  # Convert mm to m
+            msg.position = self.gripper.get_aperture()
             force = self.gripper.get_force(finger='both')
             msg.force = float(np.mean(force)) if isinstance(force, list) else float(force)
             temp = self.gripper.get_temp(finger='both')
@@ -101,10 +103,10 @@ class GripperNode(Node):
             msg.is_moving = False  # TODO: implement is_moving detection
             msg.contact_detected = False  # TODO: implement contact detection
 
-            # Individual finger positions in meters.
+            # Individual finger positions in millimeters.
             msg.finger_positions = [
-                self.gripper.get_aperture(finger='right') / 1000.0,
-                self.gripper.get_aperture(finger='left') / 1000.0,
+                self.gripper.get_aperture(finger='right'),
+                self.gripper.get_aperture(finger='left'),
             ]
 
             self.pub_state.publish(msg)
@@ -142,15 +144,20 @@ class GripperNode(Node):
     def set_position_callback(self, request, response):
         """Service callback to set gripper position"""
         try:
-            # Convert meters to mm
-            target_mm = request.position * 1000.0
+            target_mm = request.position
+
+            # Optional per-request speed scaling from [0.0, 1.0] to Dynamixel units.
+            if request.speed > 0.0:
+                speed_bits = int(min(max(request.speed, 0.0), 1.0) * 1023)
+                speed_bits = max(speed_bits, 1)
+                self.gripper.set_speed(speed_bits)
 
             self.get_logger().info(f'Setting gripper position to {target_mm:.2f} mm')
             self.gripper.set_goal_aperture(target_mm, finger='both', record_load=False)
 
             # Get actual position
             actual_mm = self.gripper.get_aperture()
-            response.actual_position = actual_mm / 1000.0
+            response.actual_position = actual_mm
             response.success = True
             response.message = f'Gripper position set to {actual_mm:.2f} mm'
         except Exception as e:
@@ -198,6 +205,20 @@ class GripperNode(Node):
 
         return response
 
+    def reset_parameters_callback(self, request, response):
+        """Service callback to reset gripper parameters to defaults"""
+        try:
+            self.get_logger().info('Resetting gripper parameters...')
+            self.gripper.reset_parameters()
+            response.success = True
+            response.message = 'Gripper parameters reset successfully'
+        except Exception as e:
+            response.success = False
+            response.message = f'Failed to reset parameters: {str(e)}'
+            self.get_logger().error(response.message)
+
+        return response
+
     async def deligrasp_execute_callback(self, goal_handle):
         """Action callback for DeliGrasp execution"""
         self.get_logger().info('Executing DeliGrasp...')
@@ -213,7 +234,7 @@ class GripperNode(Node):
             goal_handle.publish_feedback(feedback_msg)
 
             self.gripper.set_goal_aperture(
-                params.goal_aperture * 1000.0,
+                params.goal_aperture,
                 finger='both',
                 record_load=False,
             )
@@ -225,9 +246,9 @@ class GripperNode(Node):
             # Use existing DeliGrasp implementation if available
             if hasattr(self.gripper, 'deligrasp'):
                 final_aperture_mm, final_force_n, _, grasp_log = self.gripper.deligrasp(
-                    x=params.goal_aperture * 1000.0,
+                    x=params.goal_aperture,
                     fc=params.initial_force,
-                    dx=params.additional_closure * 1000.0,
+                    dx=params.additional_closure,
                     df=params.additional_force,
                     complete=params.complete_grasp
                 )
@@ -245,7 +266,7 @@ class GripperNode(Node):
             result_msg = DeliGrasp.Result()
             result_msg.success = True
             result_msg.message = 'DeliGrasp completed successfully'
-            result_msg.final_aperture = final_aperture_mm / 1000.0
+            result_msg.final_aperture = final_aperture_mm
             result_msg.final_force = float(final_force_n)
             result_msg.force_log = force_log
 
