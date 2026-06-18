@@ -15,7 +15,9 @@ import glob
 
 class Gripper:
 
-    def __init__(self, servoport=None, debug=False, use_eflesh=False):
+    def __init__(self, servoport=None, debug=False, use_eflesh=False,
+                 finger1theta_min=85, finger1theta_max=176, finger1theta_90=150,
+                 finger2theta_min=218, finger2theta_max=304, finger2theta_90=245):
         """
         Initialize gripper with dynamixel motors and optional eflesh sensors.
 
@@ -23,6 +25,10 @@ class Gripper:
             servoport: Specific port for dynamixel (if None, will auto-detect)
             debug: Enable debug output
             use_eflesh: If True, attempt to initialize eflesh sensors
+            finger1theta_min/max/90: Finger 1 (left) angle limits and parallel
+                (90 deg) angle in degrees.
+            finger2theta_min/max/90: Finger 2 (right) angle limits and parallel
+                (90 deg) angle in degrees.
         """
         self.debug = debug
         self.use_eflesh = use_eflesh
@@ -69,12 +75,12 @@ class Gripper:
         self.Finger2.set_torque_limit(self.torque)
 
         # Finger angle limits
-        self.Finger1theta_max = 176
-        self.Finger1theta_min = 85
-        self.Finger2theta_max = 304
-        self.Finger2theta_min = 218
-        self.Finger1theta_90 = 150
-        self.Finger2theta_90 = 245
+        self.Finger1theta_max = finger1theta_max
+        self.Finger1theta_min = finger1theta_min
+        self.Finger2theta_max = finger2theta_max
+        self.Finger2theta_min = finger2theta_min
+        self.Finger1theta_90 = finger1theta_90
+        self.Finger2theta_90 = finger2theta_90
 
         self.default_parameters = {
             'torque': 200,

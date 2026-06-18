@@ -36,6 +36,16 @@ class GripperNode(Node):
         self.declare_parameter('default_speed', 100)
         self.declare_parameter('default_torque', 200)
 
+        # Per-gripper finger angle limits (degrees). Floats so per-gripper
+        # calibration can use sub-degree precision. Defaults match the
+        # historical hardcoded values in the Gripper class.
+        self.declare_parameter('finger1theta_min', 85.0)
+        self.declare_parameter('finger1theta_max', 176.0)
+        self.declare_parameter('finger1theta_90', 150.0)
+        self.declare_parameter('finger2theta_min', 218.0)
+        self.declare_parameter('finger2theta_max', 304.0)
+        self.declare_parameter('finger2theta_90', 245.0)
+
         # Get parameters
         auto_detect = self.get_parameter('auto_detect_port').value
         port = None if auto_detect else self.get_parameter('port').value
@@ -47,7 +57,13 @@ class GripperNode(Node):
             self.gripper = Gripper(
                 servoport=port,
                 debug=False,
-                use_eflesh=use_eflesh
+                use_eflesh=use_eflesh,
+                finger1theta_min=self.get_parameter('finger1theta_min').value,
+                finger1theta_max=self.get_parameter('finger1theta_max').value,
+                finger1theta_90=self.get_parameter('finger1theta_90').value,
+                finger2theta_min=self.get_parameter('finger2theta_min').value,
+                finger2theta_max=self.get_parameter('finger2theta_max').value,
+                finger2theta_90=self.get_parameter('finger2theta_90').value,
             )
 
             # Set default parameters
