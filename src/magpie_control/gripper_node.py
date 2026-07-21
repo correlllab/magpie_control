@@ -90,6 +90,8 @@ class GripperNode(Node):
             Trigger, 'gripper/calibrate', self.calibrate_callback)
         self.srv_reset_parameters = self.create_service(
             Trigger, 'gripper/reset_parameters', self.reset_parameters_callback)
+        self.srv_reset_overload = self.create_service(
+            Trigger, 'gripper/reset_overload', self.reset_overload_callback)
 
         # Create action server for DeliGrasp
         self.action_server = ActionServer(
@@ -231,6 +233,20 @@ class GripperNode(Node):
         except Exception as e:
             response.success = False
             response.message = f'Failed to reset parameters: {str(e)}'
+            self.get_logger().error(response.message)
+
+        return response
+
+    def reset_overload_callback(self, request, response):
+        """Service callback to reset gripper parameters without opening the gripper"""
+        try:
+            self.get_logger().info('Resetting gripper overload (no open)...')
+            self.gripper.reset_overload()
+            response.success = True
+            response.message = 'Gripper overload reset successfully'
+        except Exception as e:
+            response.success = False
+            response.message = f'Failed to reset overload: {str(e)}'
             self.get_logger().error(response.message)
 
         return response

@@ -248,8 +248,8 @@ class Gripper:
         self.Finger1.set_goal_position(0)
         self.Finger2.set_goal_position(1023)
 
-    def reset_parameters(self):
-        """Reset gripper parameters and zero eflesh sensors."""
+    def _reset_parameters_common(self):
+        """Reset gripper parameters and force state, without moving the fingers."""
         self.apply_to_fingers('set_torque_limit', self.default_parameters['torque'], finger='both', noarg=False)
         self.apply_to_fingers('set_moving_speed', self.default_parameters['speed'], finger='both', noarg=False)
         self.apply_to_fingers('set_cw_compliance_margin', self.default_parameters['compliance_margin'], finger='both', noarg=False)
@@ -262,7 +262,20 @@ class Gripper:
         self.recorded_contact_force = 0.0
         self.recorded_contact_force_l = 0.0
         self.recorded_contact_force_r = 0.0
+
+    def reset_parameters(self):
+        """Reset gripper parameters and open the gripper."""
+        self._reset_parameters_common()
         self.open_gripper()
+        time.sleep(0.0025)
+
+    def reset_overload(self):
+        """Reset gripper parameters without opening the gripper.
+
+        Same parameter/force reset as reset_parameters(), but leaves the
+        fingers where they are (used to clear an overload without releasing
+        whatever the gripper is holding)."""
+        self._reset_parameters_common()
         time.sleep(0.0025)
 
     def zero_eflesh_sensors(self):
