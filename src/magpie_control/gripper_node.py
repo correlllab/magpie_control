@@ -148,7 +148,7 @@ class GripperNode(Node):
     def close_callback(self, request, response):
         """Service callback to close gripper"""
         try:
-            self.get_logger().info('Closing gripper...')
+            self.get_logger().debug('Closing gripper...')
             self.gripper.close_gripper()
             response.success = True
             response.message = 'Gripper closed successfully'
@@ -240,7 +240,7 @@ class GripperNode(Node):
     def reset_overload_callback(self, request, response):
         """Service callback to reset gripper parameters without opening the gripper"""
         try:
-            self.get_logger().info('Resetting gripper overload (no open)...')
+            self.get_logger().debug('Resetting gripper overload (no open)...')
             self.gripper.reset_overload()
             response.success = True
             response.message = 'Gripper overload reset successfully'
